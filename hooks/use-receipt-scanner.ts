@@ -19,17 +19,6 @@ export type ScanProgress = {
 
 export type { ReceiptScanResult };
 
-type CategoryInput = {
-  id: string;
-  name: string;
-  type: string;
-};
-
-type WalletInput = {
-  id: string;
-  name: string;
-};
-
 export function useReceiptScanner() {
   const [scanProgress, setScanProgress] = useState<ScanProgress>({
     stage: "idle",
@@ -53,7 +42,7 @@ export function useReceiptScanner() {
       targetProgress: number,
       duration: number,
       stage: ScanProgress["stage"],
-      message: string
+      message: string,
     ) => {
       return new Promise<void>((resolve) => {
         clearProgressInterval();
@@ -79,7 +68,7 @@ export function useReceiptScanner() {
         }, 50);
       });
     },
-    [clearProgressInterval]
+    [clearProgressInterval],
   );
 
   const scanMutation = useMutation({
@@ -91,7 +80,7 @@ export function useReceiptScanner() {
         20,
         400,
         "preparing",
-        "Mempersiapkan gambar..."
+        "Mempersiapkan gambar...",
       );
       // Stage 2: Uploading
       await simulateProgress(20, 40, 300, "uploading", "Mengunggah gambar...");
@@ -120,11 +109,7 @@ export function useReceiptScanner() {
   });
 
   const scanReceipt = useCallback(
-    async (
-      file: File,
-      categories: CategoryInput[],
-      wallets: WalletInput[]
-    ): Promise<ReceiptScanResult | null> => {
+    async (file: File): Promise<ReceiptScanResult | null> => {
       try {
         // Convert file to base64
         const base64 = await new Promise<string>((resolve, reject) => {
@@ -141,8 +126,6 @@ export function useReceiptScanner() {
         const result = await scanMutation.mutateAsync({
           image: base64,
           mimeType: file.type,
-          categories,
-          wallets,
         });
 
         return result;
@@ -150,7 +133,7 @@ export function useReceiptScanner() {
         return null;
       }
     },
-    [scanMutation]
+    [scanMutation],
   );
 
   const reset = useCallback(() => {

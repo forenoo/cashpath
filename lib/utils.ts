@@ -1,6 +1,6 @@
-import { clsx, type ClassValue } from "clsx";
+import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { Session } from "./auth/auth";
+import type { Session } from "./auth/auth";
 
 // Tailwind merge utility function
 export function cn(...inputs: ClassValue[]) {

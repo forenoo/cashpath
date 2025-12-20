@@ -1,6 +1,6 @@
-import { getSession } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
-import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
+import { getSession } from "@/lib/auth/auth";
+import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
 import DashboardContent from "./_components/dashboard-content";
 
 export default async function DashboardPage() {

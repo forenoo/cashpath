@@ -6,7 +6,6 @@ import { id as localeId } from "date-fns/locale";
 import {
   ArrowUpDown,
   Copy,
-  Eye,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -136,7 +135,7 @@ export const columns: ColumnDef<Transaction>[] = [
     ),
     cell: ({ row }) => {
       const category = row.original.category;
-      return <span>{category.name}</span>;
+      return <span className="text-center">{category.name}</span>;
     },
   },
   {
@@ -176,8 +175,9 @@ export const columns: ColumnDef<Transaction>[] = [
       const amount = row.getValue("amount") as number;
       return (
         <span
-          className={`font-medium ${type === "income" ? "text-green-500" : "text-destructive"
-            }`}
+          className={`font-medium ${
+            type === "income" ? "text-green-500" : "text-destructive"
+          }`}
         >
           {type === "income" ? "+" : "-"}
           {formatCurrency(amount)}

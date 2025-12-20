@@ -1,7 +1,7 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -186,8 +186,8 @@ export function AddWalletDialog({
                         value={
                           field.value
                             ? Number.parseInt(field.value, 10).toLocaleString(
-                              "id-ID",
-                            )
+                                "id-ID",
+                              )
                             : ""
                         }
                       />

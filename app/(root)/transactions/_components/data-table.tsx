@@ -22,6 +22,7 @@ import {
   CircleXIcon,
   FilterIcon,
   ListFilterIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,9 @@ import { cn } from "@/lib/utils";
 type DataTableProps<TData, TValue> = {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  onSelectionChange?: (selectedRows: TData[]) => void;
+  selectedCount?: number;
+  onBulkDelete?: () => void;
 };
 
 const typeLabels: Record<string, string> = {
@@ -76,6 +80,9 @@ const frequencyLabels: Record<string, string> = {
 export function DataTable<TData, TValue>({
   columns,
   data,
+  onSelectionChange,
+  selectedCount = 0,
+  onBulkDelete,
 }: DataTableProps<TData, TValue>) {
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +93,24 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: 10,
   });
+
+  // Notify parent when selection changes
+  const handleRowSelectionChange = (
+    updater:
+      | RowSelectionState
+      | ((old: RowSelectionState) => RowSelectionState),
+  ) => {
+    const newSelection =
+      typeof updater === "function" ? updater(rowSelection) : updater;
+    setRowSelection(newSelection);
+
+    if (onSelectionChange) {
+      const selectedRows = Object.keys(newSelection)
+        .filter((key) => newSelection[key])
+        .map((key) => data[parseInt(key)]);
+      onSelectionChange(selectedRows);
+    }
+  };
 
   const table = useReactTable({
     data,
@@ -98,7 +123,7 @@ export function DataTable<TData, TValue>({
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: handleRowSelectionChange,
     state: {
       sorting,
       columnFilters,
@@ -126,10 +151,11 @@ export function DataTable<TData, TValue>({
     return typeColumn.getFacetedUniqueValues();
   }, [table.getColumn]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <- need to add for checkbox state
   const selectedTypes = useMemo(() => {
     const filterValue = table.getColumn("type")?.getFilterValue() as string[];
     return filterValue ?? [];
-  }, [table.getColumn]);
+  }, [table, columnFilters]);
 
   const handleTypeChange = (checked: boolean, value: string) => {
     const filterValue = table.getColumn("type")?.getFilterValue() as string[];
@@ -156,7 +182,9 @@ export function DataTable<TData, TValue>({
       return [];
     }
     const values = Array.from(frequencyColumn.getFacetedUniqueValues().keys());
-    return values.sort();
+    // Map null to 'one_time' and filter out duplicates
+    const mappedValues = values.map((v) => (v === null ? "one_time" : v));
+    return [...new Set(mappedValues)].sort();
   }, [table.getColumn]);
 
   // Get counts for each frequency
@@ -165,15 +193,22 @@ export function DataTable<TData, TValue>({
     if (!frequencyColumn) {
       return new Map();
     }
-    return frequencyColumn.getFacetedUniqueValues();
+    const originalCounts = frequencyColumn.getFacetedUniqueValues();
+    const newCounts = new Map<string, number>();
+    originalCounts.forEach((count, key) => {
+      const mappedKey = key === null ? "one_time" : key;
+      newCounts.set(mappedKey, (newCounts.get(mappedKey) || 0) + count);
+    });
+    return newCounts;
   }, [table.getColumn]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: need to add for checkbox state
   const selectedFrequencies = useMemo(() => {
     const filterValue = table.getColumn("frequency")?.getFilterValue() as
       | string[]
       | undefined;
     return filterValue ?? [];
-  }, [table.getColumn]);
+  }, [table, columnFilters]);
 
   const handleFrequencyChange = (checked: boolean, value: string) => {
     const filterValue = table.getColumn("frequency")?.getFilterValue() as
@@ -198,139 +233,151 @@ export function DataTable<TData, TValue>({
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Filter by name */}
-        <div className="relative">
-          <Input
-            aria-label="Cari transaksi"
-            className={cn(
-              "peer min-w-60 ps-9",
-              Boolean(table.getColumn("name")?.getFilterValue()) && "pe-9",
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Filter by name */}
+          <div className="relative">
+            <Input
+              aria-label="Cari transaksi"
+              className={cn(
+                "peer min-w-60 ps-9",
+                Boolean(table.getColumn("name")?.getFilterValue()) && "pe-9",
+              )}
+              id={`${id}-input`}
+              onChange={(e) =>
+                table.getColumn("name")?.setFilterValue(e.target.value)
+              }
+              placeholder="Cari transaksi..."
+              ref={inputRef}
+              type="text"
+              value={
+                (table.getColumn("name")?.getFilterValue() ?? "") as string
+              }
+            />
+            <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center justify-center ps-3 text-muted-foreground/80 peer-disabled:opacity-50">
+              <ListFilterIcon aria-hidden="true" size={16} />
+            </div>
+            {Boolean(table.getColumn("name")?.getFilterValue()) && (
+              <button
+                aria-label="Clear filter"
+                className="absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md text-muted-foreground/80 outline-none transition-[color,box-shadow] hover:text-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => {
+                  table.getColumn("name")?.setFilterValue("");
+                  if (inputRef.current) {
+                    inputRef.current.focus();
+                  }
+                }}
+                type="button"
+              >
+                <CircleXIcon aria-hidden="true" size={16} />
+              </button>
             )}
-            id={`${id}-input`}
-            onChange={(e) =>
-              table.getColumn("name")?.setFilterValue(e.target.value)
-            }
-            placeholder="Cari transaksi..."
-            ref={inputRef}
-            type="text"
-            value={(table.getColumn("name")?.getFilterValue() ?? "") as string}
-          />
-          <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center justify-center ps-3 text-muted-foreground/80 peer-disabled:opacity-50">
-            <ListFilterIcon aria-hidden="true" size={16} />
           </div>
-          {Boolean(table.getColumn("name")?.getFilterValue()) && (
-            <button
-              aria-label="Clear filter"
-              className="absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md text-muted-foreground/80 outline-none transition-[color,box-shadow] hover:text-foreground focus:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => {
-                table.getColumn("name")?.setFilterValue("");
-                if (inputRef.current) {
-                  inputRef.current.focus();
-                }
-              }}
-              type="button"
-            >
-              <CircleXIcon aria-hidden="true" size={16} />
-            </button>
-          )}
+
+          {/* Filter by type */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <FilterIcon
+                  aria-hidden="true"
+                  className="-ms-1 opacity-60"
+                  size={16}
+                />
+                Tipe
+                {selectedTypes.length > 0 && (
+                  <span className="-me-1 inline-flex h-5 max-h-full items-center rounded border bg-background px-1 font-[inherit] font-medium text-[0.625rem] text-muted-foreground/70">
+                    {selectedTypes.length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto min-w-36 p-3">
+              <div className="space-y-3">
+                <div className="font-medium text-muted-foreground text-xs">
+                  Filter Tipe
+                </div>
+                <div className="space-y-3">
+                  {uniqueTypeValues.map((value, i) => (
+                    <div className="flex items-center gap-2" key={value}>
+                      <Checkbox
+                        checked={selectedTypes.includes(value)}
+                        id={`${id}-type-${i}`}
+                        onCheckedChange={(checked: boolean) =>
+                          handleTypeChange(checked, value)
+                        }
+                      />
+                      <Label
+                        className="flex grow justify-between gap-2 font-normal"
+                        htmlFor={`${id}-type-${i}`}
+                      >
+                        {typeLabels[value] || value}
+                        <span className="ms-2 text-muted-foreground text-xs">
+                          {typeCounts.get(value)}
+                        </span>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Filter by frequency */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <FilterIcon
+                  aria-hidden="true"
+                  className="-ms-1 opacity-60"
+                  size={16}
+                />
+                Frekuensi
+                {selectedFrequencies.length > 0 && (
+                  <span className="-me-1 inline-flex h-5 max-h-full items-center rounded border bg-background px-1 font-[inherit] font-medium text-[0.625rem] text-muted-foreground/70">
+                    {selectedFrequencies.length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto min-w-36 p-3">
+              <div className="space-y-3">
+                <div className="font-medium text-muted-foreground text-xs">
+                  Filter Frekuensi
+                </div>
+                <div className="space-y-3">
+                  {uniqueFrequencyValues.map((value, i) => (
+                    <div className="flex items-center gap-2" key={value}>
+                      <Checkbox
+                        checked={selectedFrequencies.includes(value)}
+                        id={`${id}-freq-${i}`}
+                        onCheckedChange={(checked: boolean) =>
+                          handleFrequencyChange(checked, value)
+                        }
+                      />
+                      <Label
+                        className="flex grow justify-between gap-2 font-normal"
+                        htmlFor={`${id}-freq-${i}`}
+                      >
+                        {frequencyLabels[value] || value}
+                        <span className="ms-2 text-muted-foreground text-xs">
+                          {frequencyCounts.get(value)}
+                        </span>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
-        {/* Filter by type */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline">
-              <FilterIcon
-                aria-hidden="true"
-                className="-ms-1 opacity-60"
-                size={16}
-              />
-              Tipe
-              {selectedTypes.length > 0 && (
-                <span className="-me-1 inline-flex h-5 max-h-full items-center rounded border bg-background px-1 font-[inherit] font-medium text-[0.625rem] text-muted-foreground/70">
-                  {selectedTypes.length}
-                </span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-auto min-w-36 p-3">
-            <div className="space-y-3">
-              <div className="font-medium text-muted-foreground text-xs">
-                Filter Tipe
-              </div>
-              <div className="space-y-3">
-                {uniqueTypeValues.map((value, i) => (
-                  <div className="flex items-center gap-2" key={value}>
-                    <Checkbox
-                      checked={selectedTypes.includes(value)}
-                      id={`${id}-type-${i}`}
-                      onCheckedChange={(checked: boolean) =>
-                        handleTypeChange(checked, value)
-                      }
-                    />
-                    <Label
-                      className="flex grow justify-between gap-2 font-normal"
-                      htmlFor={`${id}-type-${i}`}
-                    >
-                      {typeLabels[value] || value}
-                      <span className="ms-2 text-muted-foreground text-xs">
-                        {typeCounts.get(value)}
-                      </span>
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        {/* Filter by frequency */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline">
-              <FilterIcon
-                aria-hidden="true"
-                className="-ms-1 opacity-60"
-                size={16}
-              />
-              Frekuensi
-              {selectedFrequencies.length > 0 && (
-                <span className="-me-1 inline-flex h-5 max-h-full items-center rounded border bg-background px-1 font-[inherit] font-medium text-[0.625rem] text-muted-foreground/70">
-                  {selectedFrequencies.length}
-                </span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-auto min-w-36 p-3">
-            <div className="space-y-3">
-              <div className="font-medium text-muted-foreground text-xs">
-                Filter Frekuensi
-              </div>
-              <div className="space-y-3">
-                {uniqueFrequencyValues.map((value, i) => (
-                  <div className="flex items-center gap-2" key={value}>
-                    <Checkbox
-                      checked={selectedFrequencies.includes(value)}
-                      id={`${id}-freq-${i}`}
-                      onCheckedChange={(checked: boolean) =>
-                        handleFrequencyChange(checked, value)
-                      }
-                    />
-                    <Label
-                      className="flex grow justify-between gap-2 font-normal"
-                      htmlFor={`${id}-freq-${i}`}
-                    >
-                      {frequencyLabels[value] || value}
-                      <span className="ms-2 text-muted-foreground text-xs">
-                        {frequencyCounts.get(value)}
-                      </span>
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
+        {/* Bulk delete button */}
+        {selectedCount > 0 && onBulkDelete && (
+          <Button onClick={onBulkDelete} variant="destructive">
+            <Trash2Icon className="size-4" />
+            Hapus ({selectedCount})
+          </Button>
+        )}
       </div>
 
       {/* Table */}

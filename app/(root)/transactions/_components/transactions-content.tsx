@@ -1,14 +1,24 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AddTransactionSheet } from "@/components/add-transaction-sheet";
 import { DeleteTransactionDialog } from "@/components/delete-transaction-dialog";
 import { EditTransactionSheet } from "@/components/edit-transaction-sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +34,10 @@ export default function TransactionsContent() {
     useState<Transaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] =
     useState<Transaction | null>(null);
+  const [selectedTransactions, setSelectedTransactions] = useState<
+    Transaction[]
+  >([]);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
   // Query for transactions (hydrated from server)
   const { data: transactionsData, isLoading } = useQuery(
@@ -32,7 +46,6 @@ export default function TransactionsContent() {
 
   // Query for categories (for the add/edit forms)
   const { data: categories } = useQuery(trpc.category.getAll.queryOptions());
-
   // Query for wallets (for the add/edit forms)
   const { data: wallets } = useQuery(trpc.wallet.getAll.queryOptions());
 
@@ -50,6 +63,39 @@ export default function TransactionsContent() {
     },
   });
 
+  // Duplicate mutation
+  const duplicateMutation = useMutation({
+    ...trpc.transaction.duplicate.mutationOptions(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [["transaction"]] });
+      queryClient.invalidateQueries({ queryKey: [["wallet"]] });
+      toast.success("Transaksi berhasil diduplikat");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Gagal menduplikat transaksi");
+    },
+  });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    ...trpc.transaction.bulkDelete.mutationOptions(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [["transaction"]] });
+      queryClient.invalidateQueries({ queryKey: [["wallet"]] });
+      toast.success(`${data.deletedCount} transaksi berhasil dihapus`);
+      setSelectedTransactions([]);
+      setShowBulkDeleteDialog(false);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Gagal menghapus transaksi");
+    },
+  });
+
+  // Handle selection change from DataTable
+  const handleSelectionChange = useCallback((rows: Transaction[]) => {
+    setSelectedTransactions(rows);
+  }, []);
+
   // Create columns with action handlers
   const tableColumns = useMemo(
     () =>
@@ -57,11 +103,10 @@ export default function TransactionsContent() {
         onEdit: (transaction) => setEditingTransaction(transaction),
         onDelete: (transaction) => setDeletingTransaction(transaction),
         onDuplicate: (transaction) => {
-          // Open add sheet with pre-filled data
-          toast.info("Fitur duplikat akan segera tersedia");
+          duplicateMutation.mutate({ id: transaction.id });
         },
       }),
-    [],
+    [duplicateMutation],
   );
 
   const transactions = transactionsData?.data ?? [];
@@ -131,7 +176,13 @@ export default function TransactionsContent() {
       <div className="pt-6 pb-12">
         <Card>
           <CardContent>
-            <DataTable columns={tableColumns} data={transactions} />
+            <DataTable
+              columns={tableColumns}
+              data={transactions}
+              onBulkDelete={() => setShowBulkDeleteDialog(true)}
+              onSelectionChange={handleSelectionChange}
+              selectedCount={selectedTransactions.length}
+            />
           </CardContent>
         </Card>
       </div>
@@ -157,6 +208,37 @@ export default function TransactionsContent() {
         open={!!deletingTransaction}
         transaction={deletingTransaction}
       />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog
+        onOpenChange={setShowBulkDeleteDialog}
+        open={showBulkDeleteDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Hapus {selectedTransactions.length} Transaksi?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak dapat dibatalkan. Semua transaksi yang dipilih
+              akan dihapus secara permanen dan saldo dompet akan diperbarui.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={bulkDeleteMutation.isPending}
+              onClick={() => {
+                const ids = selectedTransactions.map((t) => t.id);
+                bulkDeleteMutation.mutate({ ids });
+              }}
+            >
+              {bulkDeleteMutation.isPending ? "Menghapus..." : "Hapus"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

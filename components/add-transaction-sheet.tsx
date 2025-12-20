@@ -1,7 +1,7 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse } from "date-fns";
 import { id } from "date-fns/locale";
 import {
@@ -17,7 +17,7 @@ import {
   XIcon,
 } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -26,12 +26,6 @@ import { AddWalletDialog } from "@/components/add-wallet-dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Combobox } from "@/components/ui/combobox";
-import { Progress } from "@/components/ui/progress";
-import {
-  useReceiptScanner,
-  type ReceiptScanResult,
-} from "@/hooks/use-receipt-scanner";
-import { useReceiptUpload } from "@/hooks/use-receipt-upload";
 import {
   Form,
   FormControl,
@@ -48,6 +42,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -67,6 +62,8 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useReceiptScanner } from "@/hooks/use-receipt-scanner";
+import { useReceiptUpload } from "@/hooks/use-receipt-upload";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 
@@ -155,12 +152,7 @@ export function AddTransactionSheet({
     reset: resetScanner,
   } = useReceiptScanner();
 
-  const {
-    uploadReceipt,
-    uploadProgress,
-    isUploading,
-    reset: resetUpload,
-  } = useReceiptUpload();
+  const { uploadReceipt, isUploading, reset: resetUpload } = useReceiptUpload();
 
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -232,20 +224,9 @@ export function AddTransactionSheet({
         };
         reader.readAsDataURL(file);
 
-        // Prepare categories and wallets for scanner
-        const categoriesInput = categories.map((c) => ({
-          id: c.id,
-          name: c.name,
-          type: c.type,
-        }));
-        const walletsInput = wallets.map((w) => ({
-          id: w.id,
-          name: w.name,
-        }));
-
         // Auto-scan after a brief delay to let the preview load
         setTimeout(async () => {
-          const result = await scanReceipt(file, categoriesInput, walletsInput);
+          const result = await scanReceipt(file);
           if (result) {
             // Auto-fill form with scanned data
             form.setValue("name", result.name);
@@ -306,7 +287,7 @@ export function AddTransactionSheet({
         }, 300);
       }
     },
-    [scanReceipt, form, resetScanner, categories, wallets],
+    [scanReceipt, form, resetScanner],
   );
 
   const handleDrop = useCallback(
@@ -354,21 +335,7 @@ export function AddTransactionSheet({
     if (!receiptFile) return;
 
     // Prepare categories and wallets for scanner
-    const categoriesInput = categories.map((c) => ({
-      id: c.id,
-      name: c.name,
-      type: c.type,
-    }));
-    const walletsInput = wallets.map((w) => ({
-      id: w.id,
-      name: w.name,
-    }));
-
-    const result = await scanReceipt(
-      receiptFile,
-      categoriesInput,
-      walletsInput,
-    );
+    const result = await scanReceipt(receiptFile);
     if (result) {
       // Auto-fill form with scanned data
       form.setValue("name", result.name);
@@ -377,13 +344,9 @@ export function AddTransactionSheet({
 
       // Parse and set date
       if (result.date) {
-        try {
-          const parsedDate = parse(result.date, "yyyy-MM-dd", new Date());
-          if (!Number.isNaN(parsedDate.getTime())) {
-            form.setValue("date", parsedDate);
-          }
-        } catch {
-          // Keep current date if parsing fails
+        const parsedDate = parse(result.date, "yyyy-MM-dd", new Date());
+        if (!Number.isNaN(parsedDate.getTime())) {
+          form.setValue("date", parsedDate);
         }
       }
 
@@ -426,7 +389,7 @@ export function AddTransactionSheet({
 
       toast.success("Struk berhasil dipindai! Form telah diisi otomatis.");
     }
-  }, [receiptFile, scanReceipt, form, categories, wallets]);
+  }, [receiptFile, scanReceipt, form]);
 
   const resetForm = useCallback(() => {
     form.reset();
@@ -441,11 +404,25 @@ export function AddTransactionSheet({
 
     // Upload receipt if exists
     if (receiptFile) {
+      console.log(
+        "[Add Transaction] Uploading receipt file:",
+        receiptFile.name,
+      );
       const uploadedUrl = await uploadReceipt(receiptFile);
+      console.log("[Add Transaction] Upload result:", uploadedUrl);
       if (uploadedUrl) {
         receiptUrl = uploadedUrl;
+      } else {
+        console.warn(
+          "[Add Transaction] Receipt upload failed, proceeding without receipt",
+        );
       }
     }
+
+    console.log(
+      "[Add Transaction] Creating transaction with receiptUrl:",
+      receiptUrl,
+    );
 
     createMutation.mutate({
       name: values.name,
@@ -489,7 +466,7 @@ export function AddTransactionSheet({
           <ScrollArea className="h-[calc(100vh-8rem)]">
             <Form {...form}>
               <form
-                className="space-y-6 p-6"
+                className="space-y-6 px-6"
                 onSubmit={form.handleSubmit(onSubmit)}
               >
                 {/* AI Receipt Scanner */}

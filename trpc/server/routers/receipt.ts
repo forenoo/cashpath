@@ -1,20 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { TRPCError } from "@trpc/server";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { category, wallet } from "@/db/schema";
 import { createTRPCRouter, protectedProcedure } from "../init";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-const categoryInputSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  type: z.string(),
-});
-
-const walletInputSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
 
 const receiptScanResultSchema = z.object({
   name: z.string(),
@@ -46,12 +37,10 @@ export const receiptRouter = createTRPCRouter({
       z.object({
         image: z.string().min(1, "Gambar tidak ditemukan"),
         mimeType: z.string().default("image/jpeg"),
-        categories: z.array(categoryInputSchema),
-        wallets: z.array(walletInputSchema),
       }),
     )
     .output(receiptScanResultSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       if (!process.env.GEMINI_API_KEY) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -60,15 +49,27 @@ export const receiptRouter = createTRPCRouter({
       }
 
       try {
+        // Fetch categories and wallets for the current user
+        const [categories, wallets] = await Promise.all([
+          ctx.db.query.category.findMany({
+            where: eq(category.userId, ctx.user.id),
+            columns: { id: true, name: true, type: true },
+          }),
+          ctx.db.query.wallet.findMany({
+            where: eq(wallet.userId, ctx.user.id),
+            columns: { id: true, name: true },
+          }),
+        ]);
+
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         // Build categories list for prompt
-        const categoriesList = input.categories
+        const categoriesList = categories
           .map((c) => `  - ID: "${c.id}", Name: "${c.name}", Type: "${c.type}"`)
           .join("\n");
 
         // Build wallets list for prompt
-        const walletsList = input.wallets
+        const walletsList = wallets
           .map((w) => `  - ID: "${w.id}", Name: "${w.name}"`)
           .join("\n");
 
@@ -147,7 +148,7 @@ Recurring Transaction Detection Rules:
         const text = response.text();
 
         // Clean the response - remove markdown code blocks if present
-        let cleanedText = text
+        const cleanedText = text
           .replace(/```json\n?/g, "")
           .replace(/```\n?/g, "")
           .trim();
@@ -156,16 +157,14 @@ Recurring Transaction Detection Rules:
         const parsedData = JSON.parse(cleanedText);
 
         // Validate categoryId exists in provided categories
-        const validCategoryId = input.categories.some(
+        const validCategoryId = categories.some(
           (c) => c.id === parsedData.categoryId,
         )
           ? parsedData.categoryId
           : null;
 
         // Validate walletId exists in provided wallets
-        const validWalletId = input.wallets.some(
-          (w) => w.id === parsedData.walletId,
-        )
+        const validWalletId = wallets.some((w) => w.id === parsedData.walletId)
           ? parsedData.walletId
           : null;
 
@@ -196,8 +195,6 @@ Recurring Transaction Detection Rules:
 
         return sanitizedData;
       } catch (error) {
-        console.error("Receipt scan error:", error);
-
         if (error instanceof SyntaxError) {
           throw new TRPCError({
             code: "UNPROCESSABLE_CONTENT",

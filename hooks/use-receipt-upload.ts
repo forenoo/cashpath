@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { useTRPC } from "@/trpc/client";
 
@@ -18,6 +19,10 @@ export function useReceiptUpload() {
 
   const trpc = useTRPC();
 
+  const generateUploadUrlMutation = useMutation(
+    trpc.storage.generateUploadUrl.mutationOptions(),
+  );
+
   const uploadReceipt = useCallback(
     async (file: File): Promise<string | null> => {
       try {
@@ -27,11 +32,14 @@ export function useReceiptUpload() {
           message: "Mempersiapkan upload...",
         });
 
-        const { uploadUrl, publicUrl } =
-          await trpc.storage.generateUploadUrl.mutate({
-            filename: file.name,
-            contentType: file.type,
-          });
+        const result = await generateUploadUrlMutation.mutateAsync({
+          filename: file.name,
+          contentType: file.type,
+        });
+
+        if (!result.uploadUrl) {
+          throw new Error("Failed to generate upload URL");
+        }
 
         setUploadProgress({
           stage: "uploading",
@@ -39,7 +47,7 @@ export function useReceiptUpload() {
           message: "Mengunggah gambar...",
         });
 
-        const response = await fetch(uploadUrl, {
+        const response = await fetch(result.uploadUrl, {
           method: "PUT",
           body: file,
           mode: "cors",
@@ -48,8 +56,16 @@ export function useReceiptUpload() {
           },
         });
 
+        console.log("[Receipt Upload] Upload response:", {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+        });
+
         if (!response.ok) {
-          throw new Error(`Upload gagal: ${response.status}`);
+          throw new Error(
+            `Upload gagal: ${response.status} - ${response.statusText}`,
+          );
         }
 
         setUploadProgress({
@@ -58,7 +74,7 @@ export function useReceiptUpload() {
           message: "Upload berhasil!",
         });
 
-        return publicUrl;
+        return result.publicUrl;
       } catch (error) {
         setUploadProgress({
           stage: "error",
@@ -68,7 +84,7 @@ export function useReceiptUpload() {
         return null;
       }
     },
-    [trpc],
+    [generateUploadUrlMutation],
   );
 
   const reset = useCallback(() => {

@@ -1,11 +1,11 @@
 import { TRPCError } from "@trpc/server";
-import { eq, and, gte, lte, desc, sql, like } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { transaction, wallet } from "@/db/schema";
 import {
   createTransactionSchema,
-  updateTransactionSchema,
   getTransactionsSchema,
+  updateTransactionSchema,
 } from "@/lib/validations/transaction";
 import { createTRPCRouter, protectedProcedure } from "../init";
 
@@ -256,6 +256,98 @@ export const transactionRouter = createTRPCRouter({
       await ctx.db.delete(transaction).where(eq(transaction.id, input.id));
 
       return { success: true };
+    }),
+
+  bulkDelete: protectedProcedure
+    .input(z.object({ ids: z.array(z.string()).min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      // Find all transactions to delete and verify ownership
+      const transactionsToDelete = await ctx.db.query.transaction.findMany({
+        where: and(
+          sql`${transaction.id} IN ${input.ids}`,
+          eq(transaction.userId, ctx.user.id),
+        ),
+      });
+
+      if (transactionsToDelete.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Tidak ada transaksi yang ditemukan",
+        });
+      }
+
+      // Group transactions by wallet to update balances
+      const walletBalanceChanges = new Map<string, number>();
+      for (const txn of transactionsToDelete) {
+        const change = txn.type === "income" ? -txn.amount : txn.amount;
+        const currentChange = walletBalanceChanges.get(txn.walletId) ?? 0;
+        walletBalanceChanges.set(txn.walletId, currentChange + change);
+      }
+
+      // Update wallet balances
+      for (const [walletId, balanceChange] of walletBalanceChanges) {
+        await ctx.db
+          .update(wallet)
+          .set({ balance: sql`${wallet.balance} + ${balanceChange}` })
+          .where(eq(wallet.id, walletId));
+      }
+
+      // Delete all transactions
+      const idsToDelete = transactionsToDelete.map((t) => t.id);
+      await ctx.db
+        .delete(transaction)
+        .where(sql`${transaction.id} IN ${idsToDelete}`);
+
+      return { success: true, deletedCount: transactionsToDelete.length };
+    }),
+
+  duplicate: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Find the existing transaction
+      const existing = await ctx.db.query.transaction.findFirst({
+        where: and(
+          eq(transaction.id, input.id),
+          eq(transaction.userId, ctx.user.id),
+        ),
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Transaksi tidak ditemukan",
+        });
+      }
+
+      // Create a new transaction with the same data but new id and current date
+      const newId = crypto.randomUUID();
+      const [duplicated] = await ctx.db
+        .insert(transaction)
+        .values({
+          id: newId,
+          name: existing.name,
+          type: existing.type,
+          amount: existing.amount,
+          date: new Date(), // Use current date for the duplicate
+          categoryId: existing.categoryId,
+          walletId: existing.walletId,
+          isRecurring: existing.isRecurring,
+          frequency: existing.frequency,
+          description: existing.description,
+          receiptUrl: existing.receiptUrl,
+          userId: ctx.user.id,
+        })
+        .returning();
+
+      // Update wallet balance
+      const balanceChange =
+        existing.type === "income" ? existing.amount : -existing.amount;
+      await ctx.db
+        .update(wallet)
+        .set({ balance: sql`${wallet.balance} + ${balanceChange}` })
+        .where(eq(wallet.id, existing.walletId));
+
+      return duplicated;
     }),
 
   getStats: protectedProcedure

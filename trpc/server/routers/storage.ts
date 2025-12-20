@@ -13,10 +13,21 @@ export const storageRouter = createTRPCRouter({
         const randomId = crypto.randomUUID().slice(0, 8);
         const key = `receipts/${ctx.user.id}/${timestamp}-${randomId}.${ext}`;
 
+        console.log("[Storage Router] Generating presigned URL:", {
+          key,
+          contentType: input.contentType,
+          userId: ctx.user.id,
+        });
+
         const { uploadUrl, publicUrl } = await generatePresignedUploadUrl({
           key,
           contentType: input.contentType,
           expiresIn: 300,
+        });
+
+        console.log("[Storage Router] Presigned URL generated successfully:", {
+          publicUrl,
+          uploadUrlGenerated: !!uploadUrl,
         });
 
         return {
@@ -25,10 +36,9 @@ export const storageRouter = createTRPCRouter({
           key,
         };
       } catch (error) {
-        console.error("Failed to generate upload URL:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Gagal membuat URL upload",
+          message: `${error}`,
         });
       }
     }),

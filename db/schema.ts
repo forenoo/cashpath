@@ -1,11 +1,11 @@
 import { relations } from "drizzle-orm";
 import {
-  pgTable,
-  text,
-  timestamp,
   boolean,
   index,
   integer,
+  pgTable,
+  text,
+  timestamp,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -86,6 +86,8 @@ export const userRelations = relations(user, ({ many }) => ({
   categories: many(category),
   wallets: many(wallet),
   transactions: many(transaction),
+  goals: many(goal),
+  goalTransactions: many(goalTransaction),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -205,3 +207,108 @@ export const transactionRelations = relations(transaction, ({ one }) => ({
     references: [wallet.id],
   }),
 }));
+
+// Goal table
+export const goal = pgTable(
+  "goal",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    targetAmount: integer("target_amount").notNull(),
+    currentAmount: integer("current_amount").default(0).notNull(),
+    targetDate: timestamp("target_date"),
+    status: text("status", { enum: ["active", "completed", "cancelled"] })
+      .default("active")
+      .notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("goal_userId_idx").on(table.userId),
+    index("goal_status_idx").on(table.status),
+  ],
+);
+
+// Milestone table
+export const milestone = pgTable(
+  "milestone",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    targetAmount: integer("target_amount").notNull(),
+    targetDate: timestamp("target_date"),
+    order: integer("order").notNull(),
+    isCompleted: boolean("is_completed").default(false).notNull(),
+    completedAt: timestamp("completed_at"),
+    advice: text("advice"),
+    goalId: text("goal_id")
+      .notNull()
+      .references(() => goal.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("milestone_goalId_idx").on(table.goalId),
+    index("milestone_order_idx").on(table.order),
+  ],
+);
+
+// Goal relations
+export const goalRelations = relations(goal, ({ one, many }) => ({
+  user: one(user, {
+    fields: [goal.userId],
+    references: [user.id],
+  }),
+  milestones: many(milestone),
+  transactions: many(goalTransaction),
+}));
+
+// Milestone relations
+export const milestoneRelations = relations(milestone, ({ one }) => ({
+  goal: one(goal, {
+    fields: [milestone.goalId],
+    references: [goal.id],
+  }),
+}));
+
+// Goal Transaction table
+export const goalTransaction = pgTable(
+  "goal_transaction",
+  {
+    id: text("id").primaryKey(),
+    goalId: text("goal_id")
+      .notNull()
+      .references(() => goal.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    amount: integer("amount").notNull(), // positive for additions, negative for decreases
+    description: text("description"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("goalTransaction_goalId_idx").on(table.goalId),
+    index("goalTransaction_userId_idx").on(table.userId),
+    index("goalTransaction_createdAt_idx").on(table.createdAt),
+  ],
+);
+
+// Goal Transaction relations
+export const goalTransactionRelations = relations(
+  goalTransaction,
+  ({ one }) => ({
+    goal: one(goal, {
+      fields: [goalTransaction.goalId],
+      references: [goal.id],
+    }),
+    user: one(user, {
+      fields: [goalTransaction.userId],
+      references: [user.id],
+    }),
+  }),
+);

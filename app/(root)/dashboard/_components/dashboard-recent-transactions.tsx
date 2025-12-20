@@ -111,7 +111,7 @@ export default function DashboardRecentTransactions() {
           </TableHeader>
           <TableBody>
             {recentTransactions.map((transaction) => (
-              <TableRow key={transaction.id}>
+              <TableRow className="h-12" key={transaction.id}>
                 <TableCell className="font-medium">
                   {transaction.name}
                 </TableCell>

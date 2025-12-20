@@ -194,8 +194,8 @@ export function EditWalletDialog({
                         value={
                           field.value
                             ? Number.parseInt(field.value, 10).toLocaleString(
-                              "id-ID",
-                            )
+                                "id-ID",
+                              )
                             : ""
                         }
                       />
