@@ -1,7 +1,8 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2Icon, Trash2Icon } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trash2Icon, WalletIcon } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -14,6 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 
@@ -35,6 +37,12 @@ function formatCurrency(amount: number): string {
   return `Rp ${amount.toLocaleString("id-ID")}`;
 }
 
+const walletTypeIcons: Record<string, string> = {
+  bank: "🏦",
+  "e-wallet": "📱",
+  cash: "💵",
+};
+
 export function DeleteGoalDialog({
   open,
   onOpenChange,
@@ -44,11 +52,33 @@ export function DeleteGoalDialog({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
+  // Fetch wallet allocations for this goal
+  const { data: allocations, isLoading: allocationsLoading } = useQuery({
+    ...trpc.goal.getWalletAllocations.queryOptions({
+      goalId: goal?.id ?? "",
+    }),
+    enabled: open && !!goal?.id,
+  });
+
   const deleteMutation = useMutation({
     ...trpc.goal.delete.mutationOptions(),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [["goal"]] });
-      toast.success("Goal berhasil dihapus");
+      queryClient.invalidateQueries({ queryKey: [["wallet"]] });
+
+      const returnedTotal = Object.values(data.returnedAmounts || {}).reduce(
+        (sum, amount) => sum + (amount as number),
+        0,
+      );
+
+      if (returnedTotal > 0) {
+        toast.success("Goal berhasil dihapus", {
+          description: `${formatCurrency(returnedTotal)} dikembalikan ke dompet`,
+        });
+      } else {
+        toast.success("Goal berhasil dihapus");
+      }
+
       onOpenChange(false);
       onSuccess?.();
     },
@@ -72,7 +102,7 @@ export function DeleteGoalDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Hapus Goal</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p>
                 Apakah Anda yakin ingin menghapus goal{" "}
                 <span className="font-semibold text-foreground">
@@ -80,25 +110,58 @@ export function DeleteGoalDialog({
                 </span>
                 ?
               </p>
+
               {goal && goal.currentAmount > 0 && (
-                <div className="mt-3 rounded-lg border bg-muted/50 p-3">
-                  <p className="text-sm">
-                    Progress saat ini:{" "}
-                    <span className="font-medium">
+                <div className="rounded-lg border bg-muted/50 p-3 space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span>Dana yang akan dikembalikan:</span>
+                    <span className="font-semibold text-green-600 dark:text-green-400">
                       {formatCurrency(goal.currentAmount)}
-                    </span>{" "}
-                    dari{" "}
-                    <span className="font-medium">
-                      {formatCurrency(goal.targetAmount)}
-                    </span>{" "}
-                    ({progress.toFixed(1)}%)
-                  </p>
+                    </span>
+                  </div>
+
+                  {allocationsLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  ) : allocations && allocations.length > 0 ? (
+                    <div className="space-y-1.5 pt-2 border-t">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <WalletIcon className="h-3 w-3" />
+                        Pengembalian per dompet:
+                      </p>
+                      {allocations.map((allocation) => (
+                        <div
+                          key={allocation.wallet.id}
+                          className="flex items-center justify-between text-sm"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span>
+                              {walletTypeIcons[allocation.wallet.type] || "💳"}
+                            </span>
+                            <span>{allocation.wallet.name}</span>
+                          </span>
+                          <span className="text-green-600 dark:text-green-400">
+                            +{formatCurrency(allocation.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Tidak ada alokasi dompet yang tercatat
+                    </p>
+                  )}
                 </div>
               )}
-              <p className="text-destructive text-sm">
-                Tindakan ini tidak dapat dibatalkan. Semua milestone terkait
-                juga akan dihapus.
-              </p>
+
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                <p className="text-destructive text-sm">
+                  ⚠️ Tindakan ini tidak dapat dibatalkan. Semua milestone dan
+                  riwayat transaksi juga akan dihapus.
+                </p>
+              </div>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -111,7 +174,7 @@ export function DeleteGoalDialog({
           >
             {deleteMutation.isPending ? (
               <>
-                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner className="mr-2" />
                 Menghapus...
               </>
             ) : (

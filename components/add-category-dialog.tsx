@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2Icon } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -163,7 +163,7 @@ export function AddCategoryDialog({
               <Button disabled={createMutation.isPending} type="submit">
                 {createMutation.isPending ? (
                   <>
-                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    <Spinner className="mr-2" />
                     Menyimpan...
                   </>
                 ) : (

@@ -57,6 +57,16 @@ export const updateMilestoneSchema = z.object({
 
 export const addAmountToGoalSchema = z.object({
   goalId: z.string().min(1, "Goal ID wajib diisi"),
+  walletId: z.string().min(1, "Pilih dompet sumber"),
+  amount: z
+    .number()
+    .int("Jumlah harus berupa bilangan bulat")
+    .positive("Jumlah harus lebih dari 0"),
+});
+
+export const removeAmountFromGoalSchema = z.object({
+  goalId: z.string().min(1, "Goal ID wajib diisi"),
+  walletId: z.string().min(1, "Pilih dompet tujuan"),
   amount: z
     .number()
     .int("Jumlah harus berupa bilangan bulat")
@@ -72,3 +82,6 @@ export type RegenerateMilestonesInput = z.infer<
 >;
 export type UpdateMilestoneInput = z.infer<typeof updateMilestoneSchema>;
 export type AddAmountToGoalInput = z.infer<typeof addAmountToGoalSchema>;
+export type RemoveAmountFromGoalInput = z.infer<
+  typeof removeAmountFromGoalSchema
+>;

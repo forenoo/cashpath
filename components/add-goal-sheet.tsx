@@ -6,11 +6,11 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import {
   CalendarIcon,
-  Loader2Icon,
   RocketIcon,
   TargetIcon,
   TurtleIcon,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -50,7 +50,6 @@ const goalFormSchema = z.object({
     .min(1, "Nama goal wajib diisi")
     .max(100, "Nama goal maksimal 100 karakter"),
   targetAmount: z.string().min(1, "Target tabungan wajib diisi"),
-  currentAmount: z.string().optional(),
   targetDate: z.date().optional(),
   milestonePace: z.enum(["aggressive", "moderate", "relaxed"]),
 });
@@ -97,7 +96,6 @@ export function AddGoalSheet({
     defaultValues: {
       name: "",
       targetAmount: "",
-      currentAmount: "",
       targetDate: undefined,
       milestonePace: "moderate",
     },
@@ -123,9 +121,6 @@ export function AddGoalSheet({
     createMutation.mutate({
       name: values.name,
       targetAmount: Number.parseInt(values.targetAmount.replace(/\D/g, ""), 10),
-      currentAmount: values.currentAmount
-        ? Number.parseInt(values.currentAmount.replace(/\D/g, ""), 10)
-        : 0,
       targetDate: values.targetDate,
       milestonePace: values.milestonePace,
     });
@@ -148,15 +143,15 @@ export function AddGoalSheet({
 
   return (
     <Sheet onOpenChange={handleOpenChange} open={open}>
-      <SheetContent className="w-full p-0 sm:max-w-lg gap-0" side="right">
-        <SheetHeader className="p-6 pb-0">
+      <SheetContent side="right" className="w-full sm:max-w-md gap-0">
+        <SheetHeader className="p-6">
           <SheetTitle className="text-xl">Buat Goal Baru</SheetTitle>
           <SheetDescription>
             Tetapkan target tabunganmu dan kami akan membuatkan milestone.
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-8rem)] mt-6">
+        <ScrollArea className="h-[calc(100vh-8rem)]">
           <Form {...form}>
             <form
               className="space-y-6 px-6"
@@ -205,43 +200,6 @@ export function AddGoalSheet({
                     </FormControl>
                     <FormDescription>
                       Berapa jumlah yang ingin kamu capai?
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="currentAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Tabungan Saat Ini{" "}
-                      <span className="font-normal text-muted-foreground">
-                        (Opsional)
-                      </span>
-                    </FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <span className="-translate-y-1/2 absolute top-1/2 left-3 text-muted-foreground text-sm">
-                          Rp
-                        </span>
-                        <Input
-                          className="pl-10"
-                          inputMode="numeric"
-                          placeholder="0"
-                          {...field}
-                          onChange={(e) => {
-                            const formatted = formatAmountInput(e.target.value);
-                            field.onChange(formatted);
-                          }}
-                          value={formatDisplayAmount(field.value ?? "")}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormDescription>
-                      Berapa yang sudah kamu tabung untuk goal ini?
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -360,7 +318,7 @@ export function AddGoalSheet({
                 >
                   {createMutation.isPending ? (
                     <>
-                      <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                      <Spinner className="mr-2" />
                       Membuat...
                     </>
                   ) : (

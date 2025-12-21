@@ -62,6 +62,7 @@ type DataTableProps<TData, TValue> = {
   onSelectionChange?: (selectedRows: TData[]) => void;
   selectedCount?: number;
   onBulkDelete?: () => void;
+  onRowClick?: (row: TData) => void;
 };
 
 const typeLabels: Record<string, string> = {
@@ -83,6 +84,7 @@ export function DataTable<TData, TValue>({
   onSelectionChange,
   selectedCount = 0,
   onBulkDelete,
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -405,6 +407,19 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   data-state={row.getIsSelected() && "selected"}
                   key={row.id}
+                  onClick={(e) => {
+                    // Don't trigger row click if clicking on buttons, checkboxes, or dropdown menus
+                    const target = e.target as HTMLElement;
+                    const isClickable =
+                      target.closest("button") ||
+                      target.closest("input[type='checkbox']") ||
+                      target.closest("[role='menuitem']") ||
+                      target.closest("[data-radix-popper-content-wrapper]");
+                    if (!isClickable && onRowClick) {
+                      onRowClick(row.original);
+                    }
+                  }}
+                  className={onRowClick ? "cursor-pointer" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

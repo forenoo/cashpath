@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
@@ -16,15 +17,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-
-const chartData = [
-  { month: "Januari", income: 8_500_000, expense: 4_200_000 },
-  { month: "Februari", income: 7_800_000, expense: 5_100_000 },
-  { month: "Maret", income: 9_200_000, expense: 4_800_000 },
-  { month: "April", income: 8_100_000, expense: 5_500_000 },
-  { month: "Mei", income: 8_750_000, expense: 4_600_000 },
-  { month: "Juni", income: 8_250_000, expense: 4_750_000 },
-];
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTRPC } from "@/trpc/client";
 
 const chartConfig = {
   income: {
@@ -37,18 +31,77 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+function formatCurrency(amount: number): string {
+  if (amount >= 1_000_000_000) {
+    return `Rp ${(amount / 1_000_000_000).toFixed(1)}M`;
+  }
+  if (amount >= 1_000_000) {
+    return `Rp ${(amount / 1_000_000).toFixed(1)}jt`;
+  }
+  if (amount >= 1_000) {
+    return `Rp ${(amount / 1_000).toFixed(0)}rb`;
+  }
+  return `Rp ${amount.toLocaleString("id-ID")}`;
+}
+
 export default function DashboardChart() {
+  const trpc = useTRPC();
+
+  const { data: monthlyStats, isLoading } = useQuery(
+    trpc.transaction.getMonthlyStats.queryOptions({ months: 6 }),
+  );
+
   const [activeChart, setActiveChart] = useState<"income" | "expense" | "both">(
     "both",
   );
 
-  const total = useMemo(
-    () => ({
-      income: chartData.length,
-      expense: chartData.length,
-    }),
-    [],
-  );
+  const totals = useMemo(() => {
+    if (!monthlyStats) return { income: 0, expense: 0 };
+    return monthlyStats.reduce(
+      (acc, curr) => ({
+        income: acc.income + curr.income,
+        expense: acc.expense + curr.expense,
+      }),
+      { income: 0, expense: 0 },
+    );
+  }, [monthlyStats]);
+
+  const chartData = useMemo(() => {
+    if (!monthlyStats) return [];
+    return monthlyStats.map((stat) => ({
+      month: stat.month,
+      income: stat.income,
+      expense: stat.expense,
+    }));
+  }, [monthlyStats]);
+
+  if (isLoading) {
+    return (
+      <Card className="w-full py-0">
+        <CardHeader className="p-0! flex flex-col items-stretch border-b sm:flex-row">
+          <div className="sm:py-5! flex flex-1 flex-col justify-center gap-1 px-6 pt-4 pb-3">
+            <CardTitle>Statistik Keuangan</CardTitle>
+            <CardDescription>
+              Menampilkan pemasukan dan pengeluaran 6 bulan terakhir
+            </CardDescription>
+          </div>
+          <div className="flex">
+            <div className="flex flex-1 flex-col justify-center gap-2 border-t px-6 py-4 sm:border-t-0 sm:border-l sm:px-8.5 sm:py-6">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-24" />
+            </div>
+            <div className="flex flex-1 flex-col justify-center gap-2 border-t border-l px-6 py-4 sm:border-t-0 sm:px-8 sm:py-6">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-24" />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="px-2 sm:p-6">
+          <Skeleton className="h-62.5 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full py-0">
@@ -72,8 +125,8 @@ export default function DashboardChart() {
               <TrendingUp className="size-4 text-green-500" />
               {chartConfig.income.label}
             </span>
-            <span className="font-bold text-lg leading-none sm:text-3xl">
-              {total.income.toLocaleString("id-ID")}
+            <span className="font-bold text-lg leading-none sm:text-xl">
+              {formatCurrency(totals.income)}
             </span>
           </button>
           <button
@@ -90,14 +143,14 @@ export default function DashboardChart() {
               <TrendingDown className="size-4 text-destructive" />
               {chartConfig.expense.label}
             </span>
-            <span className="font-bold text-lg leading-none sm:text-3xl">
-              {total.expense.toLocaleString("id-ID")}
+            <span className="font-bold text-lg leading-none sm:text-xl">
+              {formatCurrency(totals.expense)}
             </span>
           </button>
         </div>
       </CardHeader>
       <CardContent className="px-2 sm:p-6">
-        <ChartContainer className="h-[250px] w-full" config={chartConfig}>
+        <ChartContainer className="h-62.5 w-full" config={chartConfig}>
           <AreaChart accessibilityLayer data={chartData}>
             <CartesianGrid vertical={false} />
             <XAxis
@@ -110,8 +163,18 @@ export default function DashboardChart() {
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  indicator="line"
                   className="[&>div>div>div]:gap-2"
+                  indicator="line"
+                  formatter={(value, name) => (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">
+                        {name === "income" ? "Pemasukan" : "Pengeluaran"}:
+                      </span>
+                      <span className="font-medium">
+                        Rp {Number(value).toLocaleString("id-ID")}
+                      </span>
+                    </div>
+                  )}
                 />
               }
               cursor={false}

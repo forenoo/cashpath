@@ -6,7 +6,7 @@ import {
   isBefore,
   startOfDay,
 } from "date-fns";
-import { and, eq, isNotNull, lte } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { transaction, wallet } from "@/db/schema";
 import { inngest } from "../client";
@@ -33,13 +33,16 @@ function getNextOccurrenceDate(lastDate: Date, frequency: Frequency): Date {
 
 /**
  * Check if a transaction should be processed today based on its frequency
+ * Uses lastProcessedAt if available, otherwise falls back to date
  */
 function shouldProcessToday(
-  lastDate: Date,
+  lastProcessedAt: Date | null,
+  transactionDate: Date,
   frequency: Frequency,
   today: Date,
 ): boolean {
-  const nextOccurrence = getNextOccurrenceDate(lastDate, frequency);
+  const referenceDate = lastProcessedAt ?? transactionDate;
+  const nextOccurrence = getNextOccurrenceDate(referenceDate, frequency);
   return (
     isBefore(nextOccurrence, today) ||
     startOfDay(nextOccurrence).getTime() === startOfDay(today).getTime()
@@ -55,7 +58,7 @@ export const processRecurringTransactions = inngest.createFunction(
     id: "process-recurring-transactions",
     retries: 3,
   },
-  { cron: "5 0 * * *" }, // Run at 00:05 UTC every day
+  { cron: "29 2 * * *" }, // Run at 00:05 UTC every day
   async ({ step }) => {
     const today = startOfDay(new Date());
 
@@ -67,6 +70,7 @@ export const processRecurringTransactions = inngest.createFunction(
           where: and(
             eq(transaction.isRecurring, true),
             isNotNull(transaction.frequency),
+            isNull(transaction.recurringTemplateId),
             lte(transaction.date, today),
           ),
           with: {
@@ -85,7 +89,17 @@ export const processRecurringTransactions = inngest.createFunction(
     const transactionsToProcess = recurringTransactions.filter((tx) => {
       if (!tx.frequency) return false;
       const txDate = typeof tx.date === "string" ? new Date(tx.date) : tx.date;
-      return shouldProcessToday(txDate, tx.frequency as Frequency, today);
+      const lastProcessed = tx.lastProcessedAt
+        ? typeof tx.lastProcessedAt === "string"
+          ? new Date(tx.lastProcessedAt)
+          : tx.lastProcessedAt
+        : null;
+      return shouldProcessToday(
+        lastProcessed,
+        txDate,
+        tx.frequency as Frequency,
+        today,
+      );
     });
 
     if (transactionsToProcess.length === 0) {
@@ -166,8 +180,13 @@ export const handleRecurringTransaction = inngest.createFunction(
             date: today,
             categoryId,
             walletId,
-            isRecurring: false,
-            frequency: null,
+            isRecurring: true,
+            frequency: event.data.frequency as
+              | "daily"
+              | "weekly"
+              | "monthly"
+              | "yearly",
+            recurringTemplateId: transactionId,
             description: description
               ? `${description} (Transaksi berulang)`
               : "Transaksi berulang otomatis",
@@ -198,15 +217,14 @@ export const handleRecurringTransaction = inngest.createFunction(
       }
     });
 
-    // Update the original recurring transaction's date
-    // This updates the "last processed" date
-    await step.run("update-original-transaction-date", async () => {
-      const today = startOfDay(new Date());
+    // Update the original recurring transaction's lastProcessedAt
+    await step.run("update-last-processed-at", async () => {
+      const now = new Date();
       await db
         .update(transaction)
         .set({
-          date: today,
-          updatedAt: new Date(),
+          lastProcessedAt: now,
+          updatedAt: now,
         })
         .where(eq(transaction.id, transactionId));
     });
@@ -243,6 +261,7 @@ export const processUserRecurringTransactions = inngest.createFunction(
             eq(transaction.isRecurring, true),
             eq(transaction.userId, userId),
             isNotNull(transaction.frequency),
+            isNull(transaction.recurringTemplateId),
           ),
         });
       },
@@ -259,7 +278,17 @@ export const processUserRecurringTransactions = inngest.createFunction(
     const transactionsToProcess = recurringTransactions.filter((tx) => {
       if (!tx.frequency) return false;
       const txDate = typeof tx.date === "string" ? new Date(tx.date) : tx.date;
-      return shouldProcessToday(txDate, tx.frequency as Frequency, today);
+      const lastProcessed = tx.lastProcessedAt
+        ? typeof tx.lastProcessedAt === "string"
+          ? new Date(tx.lastProcessedAt)
+          : tx.lastProcessedAt
+        : null;
+      return shouldProcessToday(
+        lastProcessed,
+        txDate,
+        tx.frequency as Frequency,
+        today,
+      );
     });
 
     if (transactionsToProcess.length === 0) {

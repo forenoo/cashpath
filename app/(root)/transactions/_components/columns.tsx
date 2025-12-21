@@ -6,6 +6,7 @@ import { id as localeId } from "date-fns/locale";
 import {
   ArrowUpDown,
   Copy,
+  Eye,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -33,6 +34,8 @@ export type Transaction = {
   isRecurring: boolean;
   frequency: Frequency;
   description: string | null;
+  receiptUrl: string | null;
+  recurringTemplateId: string | null;
   category: {
     id: string;
     name: string;
@@ -246,6 +249,7 @@ type ColumnActions = {
   onEdit: (transaction: Transaction) => void;
   onDelete: (transaction: Transaction) => void;
   onDuplicate: (transaction: Transaction) => void;
+  onViewDetails: (transaction: Transaction) => void;
 };
 
 export function createColumns(
@@ -267,6 +271,13 @@ export function createColumns(
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => actions.onViewDetails(transaction)}
+                >
+                  <Eye className="mr-2 size-4" />
+                  Lihat Detail
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => actions.onEdit(transaction)}>
                   <Pencil className="mr-2 size-4" />
                   Edit

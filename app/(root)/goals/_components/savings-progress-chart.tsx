@@ -127,7 +127,7 @@ export function SavingsProgressChart({
   const chartConfig = {
     amount: {
       label: "Total Tabungan",
-      color: "hsl(var(--primary))",
+      color: "var(--primary)",
     },
   } satisfies ChartConfig;
 
@@ -141,7 +141,7 @@ export function SavingsProgressChart({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[250px] w-full" />
+          <Skeleton className="h-62.5 w-full" />
         </CardContent>
       </Card>
     );
@@ -166,11 +166,11 @@ export function SavingsProgressChart({
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
-          <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-62.5 items-center justify-center text-sm text-muted-foreground">
             Belum ada data transaksi
           </div>
         ) : (
-          <ChartContainer className="h-[250px] w-full" config={chartConfig}>
+          <ChartContainer className="h-62.5 w-full" config={chartConfig}>
             <AreaChart accessibilityLayer data={chartData}>
               <defs>
                 <linearGradient id="fillAmount" x1="0" x2="0" y1="0" y2="1">

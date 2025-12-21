@@ -1,13 +1,14 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { TRPCError } from "@trpc/server";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
-import { goal, goalTransaction, milestone } from "@/db/schema";
+import { goal, goalTransaction, milestone, wallet } from "@/db/schema";
 import {
   addAmountToGoalSchema,
   createGoalSchema,
   type MilestonePace,
   regenerateMilestonesSchema,
+  removeAmountFromGoalSchema,
   updateGoalSchema,
   updateMilestoneSchema,
 } from "@/lib/validations/goal";
@@ -15,159 +16,148 @@ import { createTRPCRouter, protectedProcedure } from "../init";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-// Helper function to generate milestone names and advice using Gemini AI
-async function generateMilestoneNamesWithAI(
+// Helper function to generate milestone data (name, advice, and target percentage) using Gemini AI
+async function generateMilestonesWithAI(
   goalName: string,
-  milestoneData: Array<{
-    percentage: number;
-    amount: number;
-    index: number;
-    total: number;
-  }>,
-): Promise<Array<{ name: string; advice: string }>> {
+  targetAmount: number,
+  currentAmount: number,
+  milestoneCount: number,
+): Promise<Array<{ name: string; advice: string; targetPercentage: number }>> {
   if (!process.env.GEMINI_API_KEY) {
-    // Fallback to default names if API key not configured
-    return milestoneData.map((m) => ({
-      name: getMilestoneName(m.percentage, m.index, m.total),
-      advice: "",
-    }));
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message:
+        "Gemini API key tidak dikonfigurasi. Tidak dapat membuat milestone.",
+    });
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const milestonesInfo = milestoneData
-      .map(
-        (m) =>
-          `Milestone ${m.index}: ${m.percentage}% progress (Rp ${m.amount.toLocaleString("id-ID")})`,
-      )
-      .join("\n");
+    const prompt = `You are a financial goal planning assistant. Generate ${milestoneCount} milestones for a savings goal.
 
-    const prompt = `You are a financial goal motivation assistant. Generate creative, motivational milestone names and simple advice for a savings goal.
+Goal: "${goalName}"
+Target Amount: Rp ${targetAmount.toLocaleString("id-ID")}
+Current Savings: Rp ${currentAmount.toLocaleString("id-ID")}
+Number of Milestones: ${milestoneCount}
 
-Goal Name: "${goalName}"
-
-Milestones to name:
-${milestonesInfo}
+Your task:
+1. Generate exactly ${milestoneCount} milestones
+2. For each milestone, provide:
+   - "name": A motivational name with 1-2 emojis at the start (in Indonesian/Bahasa Indonesia)
+   - "advice": A simple, actionable tip to reach this milestone (1-2 sentences, in Indonesian)
+   - "targetPercentage": The percentage of the goal this milestone represents (between 10-95)
 
 Requirements:
-1. Generate exactly ${milestoneData.length} milestones with both name and advice
-2. Each name should be motivational and relevant to the goal
-3. Include emoji (1-2 emojis) at the start of each name
-4. Names and advice should be in Indonesian language (Bahasa Indonesia)
-5. Make names specific to the progress percentage and goal context
-6. First milestone should celebrate starting the journey
-7. Last milestone should build excitement for reaching the goal
-8. Middle milestones should reflect progress milestones
-9. Keep names concise (max 3-4 words + emoji)
-10. Advice should be simple, actionable, and encouraging (1-2 sentences max)
-11. Advice should be relevant to reaching that specific milestone amount
-12. Make them personal and encouraging
+- Distribute targetPercentage values naturally across the range (don't just use evenly spaced values)
+- First milestone should be around 15-25% (early win)
+- Last milestone should be around 85-95% (almost there)
+- Middle milestones should be spaced logically
+- Each name should be unique, creative, and relevant to the savings goal context
+- Advice should be specific and actionable for that stage of saving
+- All text must be in Indonesian (Bahasa Indonesia)
+- Keep names concise (max 3-4 words + emoji)
 
-Return ONLY a JSON array of objects, no markdown, no code blocks, just the array. Each object should have "name" and "advice" properties.
-
-Example format:
+Return ONLY a valid JSON array, no markdown, no code blocks:
 [
-  {"name": "🚀 Mulai Perjalanan", "advice": "Mulai dengan menabung secara konsisten setiap bulan, bahkan jika jumlahnya kecil."},
-  {"name": "⭐ Seperempat Jalan", "advice": "Pertahankan momentum! Pertimbangkan untuk mengurangi pengeluaran tidak penting."},
-  {"name": "🔥 Setengah Perjalanan", "advice": "Kamu sudah setengah jalan! Evaluasi kembali anggaran dan cari cara untuk meningkatkan tabungan."},
-  {"name": "💪 Hampir Sampai", "advice": "Sedikit lagi! Tetap disiplin dan hindari godaan untuk menggunakan tabungan ini."}
+  {"name": "🚀 Langkah Pertama", "advice": "Mulai dengan menabung konsisten setiap minggu, sekecil apapun jumlahnya.", "targetPercentage": 20},
+  {"name": "⭐ Momentum Terbentuk", "advice": "Pertahankan kebiasaan menabung dan hindari pengeluaran impulsif.", "targetPercentage": 40},
+  {"name": "🔥 Lebih dari Setengah", "advice": "Evaluasi budget bulananmu dan cari peluang untuk menabung lebih.", "targetPercentage": 60},
+  {"name": "💪 Hampir Sampai", "advice": "Tetap fokus! Jangan tergoda menggunakan tabungan ini untuk hal lain.", "targetPercentage": 85}
 ]
 
-Generate the milestone names and advice now:`;
+Generate the milestones now:`;
 
     const result = await model.generateContent(prompt);
     const response = result.response;
     const text = response.text().trim();
 
-    // Try to parse JSON from the response
-    let milestoneResults: Array<{ name: string; advice: string }> = [];
+    // Parse JSON from the response
+    let milestoneResults: Array<{
+      name: string;
+      advice: string;
+      targetPercentage: number;
+    }> = [];
+
+    // Remove markdown code blocks if present
+    const cleanedText = text
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim();
+
     try {
-      // Remove markdown code blocks if present
-      const cleanedText = text
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
       const parsed = JSON.parse(cleanedText);
 
-      // Validate structure
-      if (Array.isArray(parsed) && parsed.length === milestoneData.length) {
+      if (Array.isArray(parsed) && parsed.length === milestoneCount) {
         milestoneResults = parsed.map((item: unknown) => {
           if (
             typeof item === "object" &&
             item !== null &&
             "name" in item &&
-            "advice" in item
+            "advice" in item &&
+            "targetPercentage" in item
           ) {
+            const percentage = Number(
+              (item as { targetPercentage: unknown }).targetPercentage,
+            );
             return {
-              name: String(item.name),
-              advice: String(item.advice),
+              name: String((item as { name: unknown }).name),
+              advice: String((item as { advice: unknown }).advice),
+              targetPercentage: Math.max(10, Math.min(95, percentage)),
             };
           }
-          // Fallback if structure is wrong
-          const index = parsed.indexOf(item);
-          return {
-            name: getMilestoneName(
-              milestoneData[index]?.percentage || 0,
-              milestoneData[index]?.index || index + 1,
-              milestoneData.length,
-            ),
-            advice: "",
-          };
+          throw new Error("Invalid milestone structure");
         });
+
+        // Sort by targetPercentage to ensure proper order
+        milestoneResults.sort(
+          (a, b) => a.targetPercentage - b.targetPercentage,
+        );
+
+        return milestoneResults;
       }
     } catch {
-      // If JSON parsing fails, try to extract array from text
-      const arrayMatch = text.match(/\[.*\]/s);
+      // Try to extract array from text
+      const arrayMatch = text.match(/\[[\s\S]*\]/);
       if (arrayMatch) {
-        try {
-          const parsed = JSON.parse(arrayMatch[0]);
-          if (Array.isArray(parsed)) {
-            milestoneResults = parsed.map((item: unknown, index: number) => {
-              if (
-                typeof item === "object" &&
-                item !== null &&
-                "name" in item &&
-                "advice" in item
-              ) {
-                return {
-                  name: String(item.name),
-                  advice: String(item.advice),
-                };
-              }
+        const parsed = JSON.parse(arrayMatch[0]);
+        if (Array.isArray(parsed) && parsed.length === milestoneCount) {
+          milestoneResults = parsed.map((item: unknown) => {
+            if (
+              typeof item === "object" &&
+              item !== null &&
+              "name" in item &&
+              "advice" in item &&
+              "targetPercentage" in item
+            ) {
+              const percentage = Number(
+                (item as { targetPercentage: unknown }).targetPercentage,
+              );
               return {
-                name: getMilestoneName(
-                  milestoneData[index]?.percentage || 0,
-                  milestoneData[index]?.index || index + 1,
-                  milestoneData.length,
-                ),
-                advice: "",
+                name: String((item as { name: unknown }).name),
+                advice: String((item as { advice: unknown }).advice),
+                targetPercentage: Math.max(10, Math.min(95, percentage)),
               };
-            });
-          }
-        } catch {
-          // Fallback to default
+            }
+            throw new Error("Invalid milestone structure");
+          });
+
+          milestoneResults.sort(
+            (a, b) => a.targetPercentage - b.targetPercentage,
+          );
+
+          return milestoneResults;
         }
       }
     }
 
-    // Validate we have the right number of results
-    if (milestoneResults.length === milestoneData.length) {
-      return milestoneResults;
-    }
-
-    // Fallback if AI response is invalid
-    return milestoneData.map((m) => ({
-      name: getMilestoneName(m.percentage, m.index, m.total),
-      advice: "",
-    }));
+    throw new Error("Failed to parse AI response");
   } catch (error) {
-    console.error("Error generating milestone names with AI:", error);
-    // Fallback to default names on error
-    return milestoneData.map((m) => ({
-      name: getMilestoneName(m.percentage, m.index, m.total),
-      advice: "",
-    }));
+    console.error("Error generating milestones with AI:", error);
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Gagal membuat milestone dengan AI. Silakan coba lagi.",
+    });
   }
 }
 
@@ -192,57 +182,25 @@ async function generateMilestones(
   const milestoneCount =
     customCount ?? (pace === "aggressive" ? 3 : pace === "moderate" ? 4 : 5);
 
-  const milestones: Array<{
-    name: string;
-    targetAmount: number;
-    targetDate: Date | null;
-    order: number;
-    advice: string;
-  }> = [];
-
-  const amountDifference = targetAmount - currentAmount;
   const now = new Date();
   const dateDifference = targetDate
     ? targetDate.getTime() - now.getTime()
     : null;
 
-  // First, calculate all milestone amounts and percentages
-  const milestoneData: Array<{
-    percentage: number;
-    amount: number;
-    index: number;
-    total: number;
-  }> = [];
-
-  for (let i = 1; i <= milestoneCount; i++) {
-    const progress = i / (milestoneCount + 1);
-    const milestoneAmount = Math.round(
-      currentAmount + amountDifference * progress,
-    );
-    const percentage = Math.round(progress * 100);
-
-    milestoneData.push({
-      percentage,
-      amount: milestoneAmount,
-      index: i,
-      total: milestoneCount,
-    });
-  }
-
-  // Generate milestone names and advice using AI
-  const milestoneResults = await generateMilestoneNamesWithAI(
+  // Generate milestones fully with AI (name, advice, and target percentage)
+  const aiMilestones = await generateMilestonesWithAI(
     goalName,
-    milestoneData,
+    targetAmount,
+    currentAmount,
+    milestoneCount,
   );
 
-  // Build final milestones array
-  for (let i = 1; i <= milestoneCount; i++) {
-    const progress = i / (milestoneCount + 1);
+  // Build final milestones array using AI-generated data
+  const milestones = aiMilestones.map((aiMilestone, index) => {
+    const progress = aiMilestone.targetPercentage / 100;
 
-    // Calculate milestone amount
-    const milestoneAmount = Math.round(
-      currentAmount + amountDifference * progress,
-    );
+    // Calculate milestone amount based on AI-suggested percentage
+    const milestoneAmount = Math.round(targetAmount * progress);
 
     // Calculate milestone date if target date exists
     let milestoneDate: Date | null = null;
@@ -251,45 +209,16 @@ async function generateMilestones(
       milestoneDate = new Date(milestoneTime);
     }
 
-    const milestoneResult = milestoneResults[i - 1];
-
-    milestones.push({
-      name:
-        milestoneResult?.name ||
-        getMilestoneName(Math.round(progress * 100), i, milestoneCount),
+    return {
+      name: aiMilestone.name,
       targetAmount: milestoneAmount,
       targetDate: milestoneDate,
-      order: i,
-      advice: milestoneResult?.advice || "",
-    });
-  }
+      order: index + 1,
+      advice: aiMilestone.advice,
+    };
+  });
 
   return milestones;
-}
-
-// Helper function to generate creative milestone names
-function getMilestoneName(
-  percentage: number,
-  index: number,
-  total: number,
-): string {
-  if (index === 1) {
-    return "🚀 First Step";
-  }
-  if (index === total) {
-    return "🎯 Almost There";
-  }
-
-  if (percentage <= 25) {
-    return "🌱 Getting Started";
-  }
-  if (percentage <= 50) {
-    return "⭐ Halfway Hero";
-  }
-  if (percentage <= 75) {
-    return "🔥 On Fire";
-  }
-  return "💪 Final Push";
 }
 
 export const goalRouter = createTRPCRouter({
@@ -350,32 +279,21 @@ export const goalRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const goalId = crypto.randomUUID();
 
-      // Create the goal
+      // Create the goal (currentAmount always starts at 0, funds come from wallets)
       await ctx.db.insert(goal).values({
         id: goalId,
         name: input.name,
         targetAmount: input.targetAmount,
-        currentAmount: input.currentAmount,
+        currentAmount: 0,
         targetDate: input.targetDate ?? null,
         status: "active",
         userId: ctx.user.id,
       });
 
-      // Create initial transaction if currentAmount > 0
-      if (input.currentAmount > 0) {
-        await ctx.db.insert(goalTransaction).values({
-          id: crypto.randomUUID(),
-          goalId: goalId,
-          userId: ctx.user.id,
-          amount: input.currentAmount,
-          description: "Initial balance",
-        });
-      }
-
       // Generate milestones
       const milestonesData = await generateMilestones(
         input.name,
-        input.currentAmount,
+        0,
         input.targetAmount,
         input.targetDate ?? null,
         input.milestonePace,
@@ -417,7 +335,7 @@ export const goalRouter = createTRPCRouter({
       return completeGoal;
     }),
 
-  // Update goal
+  // Update goal (name, targetAmount, targetDate, status only - currentAmount managed via wallet transfers)
   update: protectedProcedure
     .input(
       z.object({
@@ -437,42 +355,27 @@ export const goalRouter = createTRPCRouter({
         });
       }
 
-      // Check if currentAmount is being updated
-      const amountChanged =
-        input.data.currentAmount !== undefined &&
-        input.data.currentAmount !== existing.currentAmount;
+      // Don't allow direct currentAmount updates - must use addAmount/removeAmount
+      const { currentAmount: _ignored, ...updateData } = input.data;
 
       const [updatedGoal] = await ctx.db
         .update(goal)
-        .set({
-          ...input.data,
-        })
+        .set(updateData)
         .where(eq(goal.id, input.id))
         .returning();
-
-      // Create transaction record if amount changed
-      if (amountChanged && updatedGoal) {
-        const difference = updatedGoal.currentAmount - existing.currentAmount;
-        if (difference !== 0) {
-          await ctx.db.insert(goalTransaction).values({
-            id: crypto.randomUUID(),
-            goalId: input.id,
-            userId: ctx.user.id,
-            amount: difference,
-            description: "Balance updated",
-          });
-        }
-      }
 
       return updatedGoal;
     }),
 
-  // Delete goal (also deletes milestones via cascade)
+  // Delete goal - returns all funds to original wallets, then deletes
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.query.goal.findFirst({
         where: and(eq(goal.id, input.id), eq(goal.userId, ctx.user.id)),
+        with: {
+          transactions: true,
+        },
       });
 
       if (!existing) {
@@ -482,9 +385,32 @@ export const goalRouter = createTRPCRouter({
         });
       }
 
+      // Calculate total amount per wallet from transactions
+      const walletAmounts = new Map<string, number>();
+      for (const tx of existing.transactions) {
+        const current = walletAmounts.get(tx.walletId) || 0;
+        walletAmounts.set(tx.walletId, current + tx.amount);
+      }
+
+      // Return money to each wallet
+      for (const [walletId, amount] of walletAmounts) {
+        if (amount > 0) {
+          await ctx.db
+            .update(wallet)
+            .set({
+              balance: sql`${wallet.balance} + ${amount}`,
+            })
+            .where(eq(wallet.id, walletId));
+        }
+      }
+
+      // Delete the goal (cascades to milestones and transactions)
       await ctx.db.delete(goal).where(eq(goal.id, input.id));
 
-      return { success: true };
+      return {
+        success: true,
+        returnedAmounts: Object.fromEntries(walletAmounts),
+      };
     }),
 
   // Regenerate milestones for a goal
@@ -553,10 +479,11 @@ export const goalRouter = createTRPCRouter({
       return updatedGoal;
     }),
 
-  // Add amount to goal (update progress)
+  // Add amount to goal (update progress) - deducts from wallet
   addAmount: protectedProcedure
     .input(addAmountToGoalSchema)
     .mutation(async ({ ctx, input }) => {
+      // Verify goal exists and belongs to user
       const existing = await ctx.db.query.goal.findFirst({
         where: and(eq(goal.id, input.goalId), eq(goal.userId, ctx.user.id)),
         with: {
@@ -573,8 +500,39 @@ export const goalRouter = createTRPCRouter({
         });
       }
 
+      // Verify wallet exists and belongs to user
+      const sourceWallet = await ctx.db.query.wallet.findFirst({
+        where: and(
+          eq(wallet.id, input.walletId),
+          eq(wallet.userId, ctx.user.id),
+        ),
+      });
+
+      if (!sourceWallet) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Dompet tidak ditemukan",
+        });
+      }
+
+      // Check wallet has sufficient balance
+      if (sourceWallet.balance < input.amount) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Saldo dompet tidak mencukupi. Saldo tersedia: Rp ${sourceWallet.balance.toLocaleString("id-ID")}`,
+        });
+      }
+
       const newAmount = existing.currentAmount + input.amount;
       const isCompleted = newAmount >= existing.targetAmount;
+
+      // Deduct from wallet
+      await ctx.db
+        .update(wallet)
+        .set({
+          balance: sql`${wallet.balance} - ${input.amount}`,
+        })
+        .where(eq(wallet.id, input.walletId));
 
       // Update goal amount
       await ctx.db
@@ -585,13 +543,14 @@ export const goalRouter = createTRPCRouter({
         })
         .where(eq(goal.id, input.goalId));
 
-      // Create transaction record
+      // Create transaction record with wallet reference
       await ctx.db.insert(goalTransaction).values({
         id: crypto.randomUUID(),
         goalId: input.goalId,
         userId: ctx.user.id,
+        walletId: input.walletId,
         amount: input.amount,
-        description: null,
+        description: `Dari ${sourceWallet.name}`,
       });
 
       // Check and update milestone completion status
@@ -624,6 +583,107 @@ export const goalRouter = createTRPCRouter({
         goal: updatedGoal,
         newlyCompletedMilestones,
         isGoalCompleted: isCompleted,
+      };
+    }),
+
+  // Remove amount from goal - returns money to wallet
+  removeAmount: protectedProcedure
+    .input(removeAmountFromGoalSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Verify goal exists and belongs to user
+      const existing = await ctx.db.query.goal.findFirst({
+        where: and(eq(goal.id, input.goalId), eq(goal.userId, ctx.user.id)),
+        with: {
+          milestones: {
+            orderBy: (milestone, { asc }) => [asc(milestone.order)],
+          },
+        },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Goal tidak ditemukan",
+        });
+      }
+
+      // Verify wallet exists and belongs to user
+      const targetWallet = await ctx.db.query.wallet.findFirst({
+        where: and(
+          eq(wallet.id, input.walletId),
+          eq(wallet.userId, ctx.user.id),
+        ),
+      });
+
+      if (!targetWallet) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Dompet tidak ditemukan",
+        });
+      }
+
+      // Check goal has sufficient balance
+      if (existing.currentAmount < input.amount) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Saldo goal tidak mencukupi. Saldo tersedia: Rp ${existing.currentAmount.toLocaleString("id-ID")}`,
+        });
+      }
+
+      const newAmount = existing.currentAmount - input.amount;
+
+      // Return money to wallet
+      await ctx.db
+        .update(wallet)
+        .set({
+          balance: sql`${wallet.balance} + ${input.amount}`,
+        })
+        .where(eq(wallet.id, input.walletId));
+
+      // Update goal amount
+      await ctx.db
+        .update(goal)
+        .set({
+          currentAmount: newAmount,
+          status: newAmount >= existing.targetAmount ? "completed" : "active",
+        })
+        .where(eq(goal.id, input.goalId));
+
+      // Create negative transaction record
+      await ctx.db.insert(goalTransaction).values({
+        id: crypto.randomUUID(),
+        goalId: input.goalId,
+        userId: ctx.user.id,
+        walletId: input.walletId,
+        amount: -input.amount,
+        description: `Ke ${targetWallet.name}`,
+      });
+
+      // Update milestone completion status (may need to un-complete some)
+      for (const m of existing.milestones) {
+        if (m.isCompleted && newAmount < m.targetAmount) {
+          await ctx.db
+            .update(milestone)
+            .set({
+              isCompleted: false,
+              completedAt: null,
+            })
+            .where(eq(milestone.id, m.id));
+        }
+      }
+
+      // Return updated goal with milestones
+      const updatedGoal = await ctx.db.query.goal.findFirst({
+        where: eq(goal.id, input.goalId),
+        with: {
+          milestones: {
+            orderBy: (milestone, { asc }) => [asc(milestone.order)],
+          },
+        },
+      });
+
+      return {
+        goal: updatedGoal,
       };
     }),
 
@@ -670,7 +730,7 @@ export const goalRouter = createTRPCRouter({
       return updatedMilestone;
     }),
 
-  // Get transactions for a goal
+  // Get transactions for a goal with wallet info
   getTransactions: protectedProcedure
     .input(
       z.object({
@@ -703,10 +763,13 @@ export const goalRouter = createTRPCRouter({
         conditions.push(lte(goalTransaction.createdAt, input.endDate));
       }
 
-      // Fetch transactions
+      // Fetch transactions with wallet info
       const transactions = await ctx.db.query.goalTransaction.findMany({
         where: and(...conditions),
         orderBy: (goalTransaction, { asc }) => [asc(goalTransaction.createdAt)],
+        with: {
+          wallet: true,
+        },
       });
 
       // Calculate cumulative balance
@@ -718,9 +781,69 @@ export const goalRouter = createTRPCRouter({
           amount: runningBalance,
           transactionAmount: transaction.amount,
           description: transaction.description,
+          wallet: transaction.wallet
+            ? {
+                id: transaction.wallet.id,
+                name: transaction.wallet.name,
+                type: transaction.wallet.type,
+              }
+            : null,
         };
       });
 
       return dataPoints;
+    }),
+
+  // Get wallet allocation summary for a goal
+  getWalletAllocations: protectedProcedure
+    .input(z.object({ goalId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Verify goal belongs to user
+      const goalExists = await ctx.db.query.goal.findFirst({
+        where: and(eq(goal.id, input.goalId), eq(goal.userId, ctx.user.id)),
+        with: {
+          transactions: {
+            with: {
+              wallet: true,
+            },
+          },
+        },
+      });
+
+      if (!goalExists) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Goal tidak ditemukan",
+        });
+      }
+
+      // Calculate total amount per wallet
+      const walletAllocations = new Map<
+        string,
+        { wallet: { id: string; name: string; type: string }; amount: number }
+      >();
+
+      for (const tx of goalExists.transactions) {
+        const existing = walletAllocations.get(tx.walletId);
+        if (existing) {
+          existing.amount += tx.amount;
+        } else {
+          walletAllocations.set(tx.walletId, {
+            wallet: {
+              id: tx.wallet.id,
+              name: tx.wallet.name,
+              type: tx.wallet.type,
+            },
+            amount: tx.amount,
+          });
+        }
+      }
+
+      // Filter out wallets with zero or negative allocations
+      const allocations = Array.from(walletAllocations.values()).filter(
+        (a) => a.amount > 0,
+      );
+
+      return allocations;
     }),
 });

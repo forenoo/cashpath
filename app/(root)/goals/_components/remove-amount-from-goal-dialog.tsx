@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BanknoteIcon,
-  PlusCircleIcon,
+  MinusCircleIcon,
   WalletIcon,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
@@ -41,12 +41,12 @@ import {
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 
-const addAmountFormSchema = z.object({
-  walletId: z.string().min(1, "Pilih dompet sumber"),
+const removeAmountFormSchema = z.object({
+  walletId: z.string().min(1, "Pilih dompet tujuan"),
   amount: z.string().min(1, "Jumlah wajib diisi"),
 });
 
-type AddAmountFormValues = z.infer<typeof addAmountFormSchema>;
+type RemoveAmountFormValues = z.infer<typeof removeAmountFormSchema>;
 
 type Goal = {
   id: string;
@@ -55,14 +55,11 @@ type Goal = {
   currentAmount: number;
 } | null;
 
-type AddAmountToGoalDialogProps = {
+type RemoveAmountFromGoalDialogProps = {
   goal: Goal;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: (result: {
-    newlyCompletedMilestones: string[];
-    isGoalCompleted: boolean;
-  }) => void;
+  onSuccess?: () => void;
 };
 
 function formatCurrency(amount: number): string {
@@ -75,12 +72,12 @@ const walletTypeIcons = {
   cash: "💵",
 };
 
-export function AddAmountToGoalDialog({
+export function RemoveAmountFromGoalDialog({
   goal,
   open,
   onOpenChange,
   onSuccess,
-}: AddAmountToGoalDialogProps) {
+}: RemoveAmountFromGoalDialogProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -89,8 +86,8 @@ export function AddAmountToGoalDialog({
     trpc.wallet.getAll.queryOptions(),
   );
 
-  const form = useForm<AddAmountFormValues>({
-    resolver: zodResolver(addAmountFormSchema),
+  const form = useForm<RemoveAmountFormValues>({
+    resolver: zodResolver(removeAmountFormSchema),
     defaultValues: {
       walletId: "",
       amount: "",
@@ -100,43 +97,33 @@ export function AddAmountToGoalDialog({
   const selectedWalletId = form.watch("walletId");
   const selectedWallet = wallets?.find((w) => w.id === selectedWalletId);
 
-  const addAmountMutation = useMutation({
-    ...trpc.goal.addAmount.mutationOptions(),
-    onSuccess: (data) => {
+  const removeAmountMutation = useMutation({
+    ...trpc.goal.removeAmount.mutationOptions(),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [["goal"]] });
       queryClient.invalidateQueries({ queryKey: [["wallet"]] });
-
-      if (data.isGoalCompleted) {
-        toast.success("🎉 Selamat! Goal tercapai!", {
-          description: `Kamu berhasil mencapai target ${goal?.name}!`,
-        });
-      } else if (data.newlyCompletedMilestones.length > 0) {
-        toast.success("🌟 Milestone tercapai!", {
-          description: `${data.newlyCompletedMilestones.length} milestone baru selesai!`,
-        });
-      } else {
-        toast.success("Tabungan berhasil ditambahkan!");
-      }
-
+      toast.success("Dana berhasil dikembalikan ke dompet");
       form.reset();
       onOpenChange(false);
-      onSuccess?.({
-        newlyCompletedMilestones: data.newlyCompletedMilestones,
-        isGoalCompleted: data.isGoalCompleted,
-      });
+      onSuccess?.();
     },
     onError: (error) => {
-      toast.error(error.message || "Gagal menambahkan tabungan");
+      toast.error(error.message || "Gagal mengurangi saldo");
     },
   });
 
-  const onSubmit = (values: AddAmountFormValues) => {
+  const onSubmit = (values: RemoveAmountFormValues) => {
     if (!goal) return;
 
-    addAmountMutation.mutate({
+    const amountToRemove = Number.parseInt(
+      values.amount.replace(/\D/g, ""),
+      10,
+    );
+
+    removeAmountMutation.mutate({
       goalId: goal.id,
       walletId: values.walletId,
-      amount: Number.parseInt(values.amount.replace(/\D/g, ""), 10),
+      amount: amountToRemove,
     });
   };
 
@@ -160,37 +147,39 @@ export function AddAmountToGoalDialog({
     : 0;
 
   const amountValue = form.watch("amount");
-  const newAmount = amountValue
+  const amountToRemove = amountValue
     ? Number.parseInt(amountValue.replace(/\D/g, ""), 10) || 0
     : 0;
-  const projectedTotal = (goal?.currentAmount ?? 0) + newAmount;
+  const projectedTotal = Math.max(
+    0,
+    (goal?.currentAmount ?? 0) - amountToRemove,
+  );
   const projectedProgress = goal
     ? Math.min((projectedTotal / goal.targetAmount) * 100, 100)
     : 0;
 
-  const insufficientBalance =
-    selectedWallet && newAmount > selectedWallet.balance;
+  const isAmountTooHigh = amountToRemove > (goal?.currentAmount ?? 0);
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Tambah Tabungan
+            Tarik Dana
           </DialogTitle>
           <DialogDescription>
-            Alokasikan dana dari dompet ke goal{" "}
-            <span className="font-medium text-foreground">{goal?.name}</span>
+            Kembalikan dana dari goal{" "}
+            <span className="font-medium text-foreground">{goal?.name}</span> ke
+            dompet
           </DialogDescription>
         </DialogHeader>
 
         {goal && (
           <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Progress saat ini</span>
+              <span className="text-muted-foreground">Saldo goal saat ini</span>
               <span className="font-medium">
-                {formatCurrency(goal.currentAmount)} /{" "}
-                {formatCurrency(goal.targetAmount)}
+                {formatCurrency(goal.currentAmount)}
               </span>
             </div>
             <Progress value={currentProgress} className="h-2" />
@@ -207,7 +196,7 @@ export function AddAmountToGoalDialog({
               name="walletId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Dompet Sumber</FormLabel>
+                  <FormLabel>Dompet Tujuan</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
@@ -215,7 +204,7 @@ export function AddAmountToGoalDialog({
                   >
                     <FormControl>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Pilih dompet">
+                        <SelectValue placeholder="Pilih dompet tujuan">
                           {selectedWallet && (
                             <span className="flex items-center gap-2">
                               <span>
@@ -250,14 +239,9 @@ export function AddAmountToGoalDialog({
                       )}
                     </SelectContent>
                   </Select>
-                  {selectedWallet && (
-                    <FormDescription>
-                      Saldo tersedia:{" "}
-                      <span className="font-medium">
-                        {formatCurrency(selectedWallet.balance)}
-                      </span>
-                    </FormDescription>
-                  )}
+                  <FormDescription>
+                    Dana akan dikembalikan ke dompet ini.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -268,7 +252,7 @@ export function AddAmountToGoalDialog({
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Jumlah</FormLabel>
+                  <FormLabel>Jumlah yang Ditarik</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <span className="-translate-y-1/2 absolute top-1/2 left-3 text-muted-foreground text-sm">
@@ -277,7 +261,7 @@ export function AddAmountToGoalDialog({
                       <Input
                         className={cn(
                           "pl-10",
-                          insufficientBalance && "border-destructive",
+                          isAmountTooHigh && "border-destructive",
                         )}
                         inputMode="numeric"
                         placeholder="100.000"
@@ -290,13 +274,13 @@ export function AddAmountToGoalDialog({
                       />
                     </div>
                   </FormControl>
-                  {insufficientBalance ? (
+                  {isAmountTooHigh ? (
                     <p className="text-xs text-destructive">
-                      Saldo dompet tidak mencukupi
+                      Jumlah melebihi saldo goal yang tersedia
                     </p>
                   ) : (
                     <FormDescription>
-                      Dana akan dipindahkan dari dompet ke goal ini.
+                      Masukkan jumlah yang ingin ditarik dari goal.
                     </FormDescription>
                   )}
                   <FormMessage />
@@ -304,13 +288,11 @@ export function AddAmountToGoalDialog({
               )}
             />
 
-            {newAmount > 0 && goal && !insufficientBalance && (
+            {amountToRemove > 0 && goal && !isAmountTooHigh && (
               <div className="rounded-lg border p-4 space-y-2">
-                <p className="text-sm font-medium">
-                  Proyeksi setelah menabung:
-                </p>
+                <p className="text-sm font-medium">Proyeksi setelah penarikan:</p>
                 <div className="flex justify-between text-sm">
-                  <span>Total tabungan</span>
+                  <span>Sisa saldo goal</span>
                   <span className="font-medium">
                     {formatCurrency(projectedTotal)}
                   </span>
@@ -318,17 +300,16 @@ export function AddAmountToGoalDialog({
                 <Progress value={projectedProgress} className="h-2" />
                 <p className="text-center text-xs text-muted-foreground">
                   {projectedProgress.toFixed(1)}% tercapai
-                  {projectedProgress >= 100 && " 🎉"}
                 </p>
                 {selectedWallet && (
                   <div className="pt-2 border-t mt-2">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <BanknoteIcon className="h-3 w-3" />
-                        Sisa saldo {selectedWallet.name}
+                        Saldo {selectedWallet.name} setelah
                       </span>
-                      <span>
-                        {formatCurrency(selectedWallet.balance - newAmount)}
+                      <span className="text-green-600 dark:text-green-400">
+                        {formatCurrency(selectedWallet.balance + amountToRemove)}
                       </span>
                     </div>
                   </div>
@@ -346,21 +327,23 @@ export function AddAmountToGoalDialog({
               </Button>
               <Button
                 type="submit"
+                variant="destructive"
                 disabled={
-                  addAmountMutation.isPending ||
-                  insufficientBalance ||
-                  !selectedWalletId
+                  removeAmountMutation.isPending ||
+                  isAmountTooHigh ||
+                  !selectedWalletId ||
+                  amountToRemove <= 0
                 }
               >
-                {addAmountMutation.isPending ? (
+                {removeAmountMutation.isPending ? (
                   <>
                     <Spinner className="mr-2" />
-                    Menambahkan...
+                    Menarik...
                   </>
                 ) : (
                   <>
-                    <PlusCircleIcon className="h-4 w-4" />
-                    Tambah
+                    <MinusCircleIcon className="h-4 w-4" />
+                    Tarik Dana
                   </>
                 )}
               </Button>

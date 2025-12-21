@@ -3,12 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Loader2Icon,
   RefreshCwIcon,
   RocketIcon,
   TargetIcon,
   TurtleIcon,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -227,7 +227,7 @@ export function RegenerateMilestonesDialog({
               <Button type="submit" disabled={regenerateMutation.isPending}>
                 {regenerateMutation.isPending ? (
                   <>
-                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                    <Spinner className="mr-2" />
                     Regenerating...
                   </>
                 ) : (

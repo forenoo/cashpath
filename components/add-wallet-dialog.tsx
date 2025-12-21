@@ -2,7 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2Icon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -32,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/trpc/client";
 
 const walletFormSchema = z.object({
@@ -201,7 +201,7 @@ export function AddWalletDialog({
               )}
             />
 
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="gap-2">
               <Button
                 disabled={createMutation.isPending}
                 onClick={() => handleOpenChange(false)}
@@ -213,7 +213,7 @@ export function AddWalletDialog({
               <Button disabled={createMutation.isPending} type="submit">
                 {createMutation.isPending ? (
                   <>
-                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    <Spinner className="mr-2" />
                     Menyimpan...
                   </>
                 ) : (

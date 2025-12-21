@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { AddTransactionSheet } from "@/components/add-transaction-sheet";
 import { DeleteTransactionDialog } from "@/components/delete-transaction-dialog";
 import { EditTransactionSheet } from "@/components/edit-transaction-sheet";
+import { TransactionDetailsSheet } from "@/components/transaction-details-sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,8 @@ export default function TransactionsContent() {
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] =
+    useState<Transaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [selectedTransactions, setSelectedTransactions] = useState<
     Transaction[]
@@ -105,6 +108,7 @@ export default function TransactionsContent() {
         onDuplicate: (transaction) => {
           duplicateMutation.mutate({ id: transaction.id });
         },
+        onViewDetails: (transaction) => setSelectedTransaction(transaction),
       }),
     [duplicateMutation],
   );
@@ -180,12 +184,20 @@ export default function TransactionsContent() {
               columns={tableColumns}
               data={transactions}
               onBulkDelete={() => setShowBulkDeleteDialog(true)}
+              onRowClick={setSelectedTransaction}
               onSelectionChange={handleSelectionChange}
               selectedCount={selectedTransactions.length}
             />
           </CardContent>
         </Card>
       </div>
+
+      {/* Transaction Details Sheet */}
+      <TransactionDetailsSheet
+        onOpenChange={(open) => !open && setSelectedTransaction(null)}
+        open={!!selectedTransaction}
+        transaction={selectedTransaction}
+      />
 
       {/* Edit Transaction Sheet */}
       <EditTransactionSheet

@@ -7,12 +7,24 @@ import {
   CheckCircle2Icon,
   CircleIcon,
   FlagIcon,
+  MinusIcon,
+  PencilIcon,
+  PlusIcon,
   RocketIcon,
+  Trash2Icon,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { AddAmountToGoalDialog } from "@/components/add-amount-to-goal-dialog";
+import { DeleteGoalDialog } from "@/components/delete-goal-dialog";
+import { EditGoalSheet } from "@/components/edit-goal-sheet";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { GoalTransactionHistory } from "./goal-transaction-history";
+import { RemoveAmountFromGoalDialog } from "./remove-amount-from-goal-dialog";
 import { SavingsProgressChart } from "./savings-progress-chart";
 
 type Milestone = {
@@ -46,6 +58,12 @@ function formatCurrency(amount: number): string {
 }
 
 export function JourneyMap({ goal }: JourneyMapProps) {
+  const router = useRouter();
+  const [addAmountOpen, setAddAmountOpen] = useState(false);
+  const [removeAmountOpen, setRemoveAmountOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
   const progress = Math.min(
     (goal.currentAmount / goal.targetAmount) * 100,
     100,
@@ -155,8 +173,74 @@ export function JourneyMap({ goal }: JourneyMapProps) {
         </CardContent>
       </Card>
 
+      {/* Quick Action Buttons */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={() => setAddAmountOpen(true)}
+        >
+          <PlusIcon className="h-4 w-4" />
+          <span className="truncate">Tambah</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={() => setRemoveAmountOpen(true)}
+          disabled={goal.currentAmount <= 0}
+        >
+          <MinusIcon className="h-4 w-4" />
+          <span className="truncate">Kurangi</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={() => setEditOpen(true)}
+        >
+          <PencilIcon className="h-4 w-4" />
+          <span className="truncate">Edit</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={() => setDeleteOpen(true)}
+        >
+          <Trash2Icon className="h-4 w-4" />
+          <span className="truncate">Hapus</span>
+        </Button>
+      </div>
+
+      {/* Dialogs */}
+      <AddAmountToGoalDialog
+        goal={goal}
+        open={addAmountOpen}
+        onOpenChange={setAddAmountOpen}
+      />
+      <RemoveAmountFromGoalDialog
+        goal={goal}
+        open={removeAmountOpen}
+        onOpenChange={setRemoveAmountOpen}
+      />
+      <EditGoalSheet
+        goal={goal}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
+      <DeleteGoalDialog
+        goal={goal}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onSuccess={() => router.push("/goals")}
+      />
+
       {/* Savings Progress Chart */}
       <SavingsProgressChart
+        goalId={goal.id}
+        goalCreatedAt={new Date(goal.createdAt)}
+      />
+
+      {/* Transaction History */}
+      <GoalTransactionHistory
         goalId={goal.id}
         goalCreatedAt={new Date(goal.createdAt)}
       />
@@ -275,15 +359,27 @@ export function JourneyMap({ goal }: JourneyMapProps) {
                               />
                             </div>
                           )}
-                          {point.type === "milestone" &&
-                            point.advice &&
-                            !isPast && (
-                              <div className="mt-2 p-2.5 rounded-md bg-muted/50 border border-border/50">
-                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                  💡 {point.advice}
-                                </p>
-                              </div>
-                            )}
+                          {point.type === "milestone" && point.advice && (
+                            <div
+                              className={cn(
+                                "mt-2 p-2.5 rounded-md border",
+                                isPast
+                                  ? "bg-green-50/50 dark:bg-green-950/10 border-green-200/50 dark:border-green-800/30"
+                                  : "bg-muted/50 border-border/50",
+                              )}
+                            >
+                              <p
+                                className={cn(
+                                  "text-xs leading-relaxed",
+                                  isPast
+                                    ? "text-green-700/80 dark:text-green-400/80"
+                                    : "text-muted-foreground",
+                                )}
+                              >
+                                💡 {point.advice}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
 

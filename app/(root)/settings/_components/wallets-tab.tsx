@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
+import { AddWalletDialog } from "@/components/add-wallet-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AddWalletDialog } from "@/components/add-wallet-dialog";
 import { useTRPC } from "@/trpc/client";
 import WalletsList from "./wallets-list";
 

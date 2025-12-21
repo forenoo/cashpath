@@ -7,16 +7,6 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const R2_ENDPOINT = `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
-// Log R2 configuration (without sensitive data)
-console.log("[R2 Client] Initializing with config:", {
-  endpoint: R2_ENDPOINT,
-  bucketName: process.env.R2_BUCKET_NAME,
-  publicUrl: process.env.R2_PUBLIC_URL,
-  hasAccountId: !!process.env.R2_ACCOUNT_ID,
-  hasAccessKeyId: !!process.env.R2_ACCESS_KEY_ID,
-  hasSecretAccessKey: !!process.env.R2_SECRET_ACCESS_KEY,
-});
-
 export const r2Client = new S3Client({
   region: "auto",
   endpoint: R2_ENDPOINT,
@@ -40,13 +30,6 @@ export async function generatePresignedUploadUrl(
 ): Promise<{ uploadUrl: string; publicUrl: string }> {
   const { key, contentType, expiresIn = 300 } = params;
 
-  console.log("[R2 Client] Generating presigned URL:", {
-    bucket: R2_BUCKET_NAME,
-    key,
-    contentType,
-    expiresIn,
-  });
-
   const command = new PutObjectCommand({
     Bucket: R2_BUCKET_NAME,
     Key: key,
@@ -55,11 +38,6 @@ export async function generatePresignedUploadUrl(
 
   const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn });
   const publicUrl = `${R2_PUBLIC_URL}/${key}`;
-
-  console.log("[R2 Client] Presigned URL generated:", {
-    publicUrl,
-    uploadUrlLength: uploadUrl.length,
-  });
 
   return { uploadUrl, publicUrl };
 }

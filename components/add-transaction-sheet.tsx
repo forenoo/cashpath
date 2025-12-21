@@ -10,12 +10,12 @@ import {
   CalendarIcon,
   CheckCircle2Icon,
   ImageIcon,
-  Loader2Icon,
   ScanIcon,
   UploadIcon,
   XCircleIcon,
   XIcon,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import Image from "next/image";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -520,7 +520,7 @@ export function AddTransactionSheet({
                             >
                               {isScanning ? (
                                 <>
-                                  <Loader2Icon className="mr-1 size-3 animate-spin" />
+                                  <Spinner className="mr-1 size-3" />
                                   Memindai...
                                 </>
                               ) : (
@@ -888,12 +888,12 @@ export function AddTransactionSheet({
                   >
                     {isUploading ? (
                       <>
-                        <Loader2Icon className="mr-2 size-4 animate-spin" />
+                        <Spinner className="mr-2" />
                         Mengunggah struk...
-                      </>
+                      </> 
                     ) : createMutation.isPending ? (
                       <>
-                        <Loader2Icon className="mr-2 size-4 animate-spin" />
+                        <Spinner className="mr-2" />
                         Menyimpan...
                       </>
                     ) : (

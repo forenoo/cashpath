@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2Icon, Trash2Icon } from "lucide-react";
+import { Trash2Icon } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,7 +79,7 @@ export function DeleteTransactionDialog({
           >
             {isDeleting ? (
               <>
-                <Loader2Icon className="mr-2 size-4 animate-spin" />
+                <Spinner className="mr-2" />
                 Menghapus...
               </>
             ) : (

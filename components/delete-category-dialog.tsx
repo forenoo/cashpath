@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2Icon, Trash2Icon } from "lucide-react";
+import { Trash2Icon } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -100,7 +101,7 @@ export function DeleteCategoryDialog({
           >
             {deleteMutation.isPending ? (
               <>
-                <Loader2Icon className="mr-2 size-4 animate-spin" />
+                <Spinner className="mr-2" />
                 Menghapus...
               </>
             ) : (

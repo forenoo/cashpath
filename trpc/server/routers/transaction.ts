@@ -109,6 +109,40 @@ export const transactionRouter = createTRPCRouter({
       return result;
     }),
 
+  getRecurringTransactions: protectedProcedure
+    .input(z.object({ templateId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Verify the template transaction exists and belongs to user
+      const template = await ctx.db.query.transaction.findFirst({
+        where: and(
+          eq(transaction.id, input.templateId),
+          eq(transaction.userId, ctx.user.id),
+        ),
+      });
+
+      if (!template) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Template transaksi tidak ditemukan",
+        });
+      }
+
+      // Get all recurring transactions created from this template
+      const data = await ctx.db.query.transaction.findMany({
+        where: and(
+          eq(transaction.recurringTemplateId, input.templateId),
+          eq(transaction.userId, ctx.user.id),
+        ),
+        with: {
+          category: true,
+          wallet: true,
+        },
+        orderBy: [desc(transaction.date), desc(transaction.createdAt)],
+      });
+
+      return data;
+    }),
+
   create: protectedProcedure
     .input(createTransactionSchema)
     .mutation(async ({ ctx, input }) => {
@@ -412,5 +446,68 @@ export const transactionRouter = createTRPCRouter({
       });
 
       return data;
+    }),
+
+  getMonthlyStats: protectedProcedure
+    .input(
+      z.object({
+        months: z.number().int().min(1).max(12).default(6),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const now = new Date();
+      const monthsAgo = new Date(now.getFullYear(), now.getMonth() - input.months + 1, 1);
+
+      const conditions = [
+        eq(transaction.userId, ctx.user.id),
+        gte(transaction.date, monthsAgo),
+      ];
+
+      const whereClause = and(...conditions);
+
+      const monthlyData = await ctx.db
+        .select({
+          year: sql<number>`EXTRACT(YEAR FROM ${transaction.date})::int`,
+          month: sql<number>`EXTRACT(MONTH FROM ${transaction.date})::int`,
+          income: sql<number>`COALESCE(SUM(CASE WHEN ${transaction.type} = 'income' THEN ${transaction.amount} ELSE 0 END), 0)`,
+          expense: sql<number>`COALESCE(SUM(CASE WHEN ${transaction.type} = 'expense' THEN ${transaction.amount} ELSE 0 END), 0)`,
+        })
+        .from(transaction)
+        .where(whereClause)
+        .groupBy(
+          sql`EXTRACT(YEAR FROM ${transaction.date})`,
+          sql`EXTRACT(MONTH FROM ${transaction.date})`,
+        )
+        .orderBy(
+          sql`EXTRACT(YEAR FROM ${transaction.date})`,
+          sql`EXTRACT(MONTH FROM ${transaction.date})`,
+        );
+
+      // Indonesian month names
+      const monthNames = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+      ];
+
+      // Fill in missing months with zero data
+      const result = [];
+      for (let i = 0; i < input.months; i++) {
+        const targetDate = new Date(now.getFullYear(), now.getMonth() - input.months + 1 + i, 1);
+        const year = targetDate.getFullYear();
+        const month = targetDate.getMonth() + 1;
+
+        const existing = monthlyData.find(
+          (d) => d.year === year && d.month === month,
+        );
+
+        result.push({
+          month: monthNames[month - 1],
+          year,
+          income: Number(existing?.income ?? 0),
+          expense: Number(existing?.expense ?? 0),
+        });
+      }
+
+      return result;
     }),
 });

@@ -8,8 +8,8 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CalendarIcon,
-  Loader2Icon,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -562,7 +562,7 @@ export function EditTransactionSheet({
                   >
                     {updateMutation.isPending ? (
                       <>
-                        <Loader2Icon className="mr-2 size-4 animate-spin" />
+                        <Spinner className="mr-2" />
                         Menyimpan...
                       </>
                     ) : (

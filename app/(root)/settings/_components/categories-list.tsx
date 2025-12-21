@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import {
   FolderIcon,
   MoreHorizontalIcon,
   PencilIcon,
   Trash2Icon,
 } from "lucide-react";
+import { useState } from "react";
+import { DeleteCategoryDialog } from "@/components/delete-category-dialog";
+import { EditCategoryDialog } from "@/components/edit-category-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,8 +26,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { EditCategoryDialog } from "@/components/edit-category-dialog";
-import { DeleteCategoryDialog } from "@/components/delete-category-dialog";
 
 type CategoryWithStats = {
   id: string;
@@ -79,8 +79,8 @@ export default function CategoriesList({
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full" />
+        {[...Array(3)].map((_, index) => (
+          <Skeleton key={`skeleton-${index}`} className="h-16 w-full" />
         ))}
       </div>
     );
@@ -107,9 +107,9 @@ export default function CategoriesList({
           <TableRow>
             <TableHead>Nama</TableHead>
             <TableHead>Tipe</TableHead>
-            <TableHead className="text-right">Jumlah Transaksi</TableHead>
+            <TableHead className="text-center">Jumlah Transaksi</TableHead>
             <TableHead className="text-right">Total Nominal</TableHead>
-            <TableHead className="w-[120px] text-center">Aksi</TableHead>
+            <TableHead className="w-30 text-center">Aksi</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -128,7 +128,7 @@ export default function CategoriesList({
                   {categoryTypeLabels[category.type]}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right text-muted-foreground">
+              <TableCell className="text-center text-muted-foreground">
                 {category.stats.totalTransactions}
               </TableCell>
               <TableCell className="text-right font-medium">

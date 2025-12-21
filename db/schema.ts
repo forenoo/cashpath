@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -88,6 +89,7 @@ export const userRelations = relations(user, ({ many }) => ({
   transactions: many(transaction),
   goals: many(goal),
   goalTransactions: many(goalTransaction),
+  scenarios: many(scenario),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -151,6 +153,8 @@ export const transaction = pgTable(
       enum: ["daily", "weekly", "monthly", "yearly"],
     }),
     receiptUrl: text("receipt_url"),
+    recurringTemplateId: text("recurring_template_id"),
+    lastProcessedAt: timestamp("last_processed_at"),
     categoryId: text("category_id")
       .notNull()
       .references(() => category.id),
@@ -190,6 +194,7 @@ export const walletRelations = relations(wallet, ({ one, many }) => ({
     references: [user.id],
   }),
   transactions: many(transaction),
+  goalTransactions: many(goalTransaction),
 }));
 
 // Transaction relations
@@ -287,6 +292,9 @@ export const goalTransaction = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    walletId: text("wallet_id")
+      .notNull()
+      .references(() => wallet.id),
     amount: integer("amount").notNull(), // positive for additions, negative for decreases
     description: text("description"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -294,6 +302,7 @@ export const goalTransaction = pgTable(
   (table) => [
     index("goalTransaction_goalId_idx").on(table.goalId),
     index("goalTransaction_userId_idx").on(table.userId),
+    index("goalTransaction_walletId_idx").on(table.walletId),
     index("goalTransaction_createdAt_idx").on(table.createdAt),
   ],
 );
@@ -310,5 +319,54 @@ export const goalTransactionRelations = relations(
       fields: [goalTransaction.userId],
       references: [user.id],
     }),
+    wallet: one(wallet, {
+      fields: [goalTransaction.walletId],
+      references: [wallet.id],
+    }),
   }),
 );
+
+// Scenario table for Time Machine feature (custom scenarios)
+export const scenario = pgTable(
+  "scenario",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    items: jsonb("items")
+      .$type<
+        Array<{
+          id: string;
+          name: string;
+          amount: number;
+          type: "income" | "expense";
+        }>
+      >()
+      .notNull(),
+    frequency: text("frequency", { enum: ["daily", "monthly"] })
+      .default("monthly")
+      .notNull(),
+    netMonthly: integer("net_monthly").notNull(),
+    projection1Year: integer("projection_1_year").notNull(),
+    projection5Years: integer("projection_5_years").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("scenario_userId_idx").on(table.userId),
+    index("scenario_createdAt_idx").on(table.createdAt),
+  ],
+);
+
+// Scenario relations
+export const scenarioRelations = relations(scenario, ({ one }) => ({
+  user: one(user, {
+    fields: [scenario.userId],
+    references: [user.id],
+  }),
+}));

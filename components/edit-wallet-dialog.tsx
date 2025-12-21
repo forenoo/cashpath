@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2Icon } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -219,7 +219,7 @@ export function EditWalletDialog({
               <Button disabled={updateMutation.isPending} type="submit">
                 {updateMutation.isPending ? (
                   <>
-                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    <Spinner className="mr-2" />
                     Menyimpan...
                   </>
                 ) : (

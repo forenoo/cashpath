@@ -4,7 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { CalendarIcon, Loader2Icon } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -48,7 +49,6 @@ const editGoalFormSchema = z.object({
     .min(1, "Nama goal wajib diisi")
     .max(100, "Nama goal maksimal 100 karakter"),
   targetAmount: z.string().min(1, "Target tabungan wajib diisi"),
-  currentAmount: z.string(),
   targetDate: z.date().nullable().optional(),
   status: z.enum(["active", "completed", "cancelled"]),
 });
@@ -91,7 +91,6 @@ export function EditGoalSheet({
     defaultValues: {
       name: "",
       targetAmount: "",
-      currentAmount: "",
       targetDate: null,
       status: "active",
     },
@@ -103,7 +102,6 @@ export function EditGoalSheet({
       form.reset({
         name: goal.name,
         targetAmount: goal.targetAmount.toString(),
-        currentAmount: goal.currentAmount.toString(),
         targetDate: goal.targetDate,
         status: goal.status,
       });
@@ -132,10 +130,6 @@ export function EditGoalSheet({
         name: values.name,
         targetAmount: Number.parseInt(
           values.targetAmount.replace(/\D/g, ""),
-          10,
-        ),
-        currentAmount: Number.parseInt(
-          values.currentAmount.replace(/\D/g, ""),
           10,
         ),
         targetDate: values.targetDate,
@@ -204,35 +198,6 @@ export function EditGoalSheet({
                         className="pl-10"
                         inputMode="numeric"
                         placeholder="10.000.000"
-                        {...field}
-                        onChange={(e) => {
-                          const formatted = formatAmountInput(e.target.value);
-                          field.onChange(formatted);
-                        }}
-                        value={formatDisplayAmount(field.value)}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="currentAmount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tabungan Saat Ini</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <span className="-translate-y-1/2 absolute top-1/2 left-3 text-muted-foreground text-sm">
-                        Rp
-                      </span>
-                      <Input
-                        className="pl-10"
-                        inputMode="numeric"
-                        placeholder="0"
                         {...field}
                         onChange={(e) => {
                           const formatted = formatAmountInput(e.target.value);
@@ -333,7 +298,7 @@ export function EditGoalSheet({
               >
                 {updateMutation.isPending ? (
                   <>
-                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                    <Spinner className="mr-2" />
                     Menyimpan...
                   </>
                 ) : (
