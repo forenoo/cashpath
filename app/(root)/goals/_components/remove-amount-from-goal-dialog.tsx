@@ -2,11 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  BanknoteIcon,
-  MinusCircleIcon,
-  WalletIcon,
-} from "lucide-react";
+import { BanknoteIcon, MinusCircleIcon, WalletIcon } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -290,7 +286,9 @@ export function RemoveAmountFromGoalDialog({
 
             {amountToRemove > 0 && goal && !isAmountTooHigh && (
               <div className="rounded-lg border p-4 space-y-2">
-                <p className="text-sm font-medium">Proyeksi setelah penarikan:</p>
+                <p className="text-sm font-medium">
+                  Proyeksi setelah penarikan:
+                </p>
                 <div className="flex justify-between text-sm">
                   <span>Sisa saldo goal</span>
                   <span className="font-medium">
@@ -309,7 +307,9 @@ export function RemoveAmountFromGoalDialog({
                         Saldo {selectedWallet.name} setelah
                       </span>
                       <span className="text-green-600 dark:text-green-400">
-                        {formatCurrency(selectedWallet.balance + amountToRemove)}
+                        {formatCurrency(
+                          selectedWallet.balance + amountToRemove,
+                        )}
                       </span>
                     </div>
                   </div>

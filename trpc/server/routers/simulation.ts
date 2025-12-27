@@ -24,10 +24,7 @@ export const simulationRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const result = await ctx.db.query.scenario.findFirst({
-        where: and(
-          eq(scenario.id, input.id),
-          eq(scenario.userId, ctx.user.id),
-        ),
+        where: and(eq(scenario.id, input.id), eq(scenario.userId, ctx.user.id)),
       });
 
       return result ?? null;
@@ -70,9 +67,7 @@ export const simulationRouter = createTRPCRouter({
           projection1Year: input.projection1Year,
           projection5Years: input.projection5Years,
         })
-        .where(
-          and(eq(scenario.id, input.id), eq(scenario.userId, ctx.user.id)),
-        )
+        .where(and(eq(scenario.id, input.id), eq(scenario.userId, ctx.user.id)))
         .returning();
 
       return updatedScenario;

@@ -456,7 +456,11 @@ export const transactionRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const now = new Date();
-      const monthsAgo = new Date(now.getFullYear(), now.getMonth() - input.months + 1, 1);
+      const monthsAgo = new Date(
+        now.getFullYear(),
+        now.getMonth() - input.months + 1,
+        1,
+      );
 
       const conditions = [
         eq(transaction.userId, ctx.user.id),
@@ -485,14 +489,28 @@ export const transactionRouter = createTRPCRouter({
 
       // Indonesian month names
       const monthNames = [
-        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+        "Januari",
+        "Februari",
+        "Maret",
+        "April",
+        "Mei",
+        "Juni",
+        "Juli",
+        "Agustus",
+        "September",
+        "Oktober",
+        "November",
+        "Desember",
       ];
 
       // Fill in missing months with zero data
       const result = [];
       for (let i = 0; i < input.months; i++) {
-        const targetDate = new Date(now.getFullYear(), now.getMonth() - input.months + 1 + i, 1);
+        const targetDate = new Date(
+          now.getFullYear(),
+          now.getMonth() - input.months + 1 + i,
+          1,
+        );
         const year = targetDate.getFullYear();
         const month = targetDate.getMonth() + 1;
 

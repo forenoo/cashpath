@@ -13,11 +13,29 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { WalletDetailsSheet } from "@/components/wallet-details-sheet";
 import { useTRPC } from "@/trpc/client";
 import WalletsList from "./wallets-list";
 
+type WalletWithStats = {
+  id: string;
+  name: string;
+  type: "bank" | "e-wallet" | "cash";
+  balance: number;
+  userId: string;
+  createdAt: Date;
+  stats: {
+    totalTransactions: number;
+    totalIncome: number;
+    totalExpense: number;
+  };
+};
+
 export default function WalletsTab() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [selectedWallet, setSelectedWallet] = useState<WalletWithStats | null>(
+    null,
+  );
   const trpc = useTRPC();
 
   const { data: wallets, isLoading: isLoadingWallets } = useQuery(
@@ -57,10 +75,20 @@ export default function WalletsTab() {
         </CardAction>
       </CardHeader>
       <CardContent>
-        <WalletsList wallets={walletsWithStats} isLoading={isLoading} />
+        <WalletsList
+          wallets={walletsWithStats}
+          isLoading={isLoading}
+          onRowClick={setSelectedWallet}
+        />
       </CardContent>
 
       <AddWalletDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
+
+      <WalletDetailsSheet
+        open={!!selectedWallet}
+        onOpenChange={(open) => !open && setSelectedWallet(null)}
+        wallet={selectedWallet}
+      />
     </Card>
   );
 }

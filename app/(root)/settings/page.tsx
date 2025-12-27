@@ -1,6 +1,6 @@
-import { getSession } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
-import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
+import { getSession } from "@/lib/auth/auth";
+import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
 import SettingsContent from "./_components/settings-content";
 
 export default async function SettingsPage() {

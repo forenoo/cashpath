@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
-import { eq, and, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { wallet, transaction } from "@/db/schema";
+import { transaction, wallet } from "@/db/schema";
 import {
   createWalletSchema,
   updateWalletSchema,
@@ -159,5 +159,161 @@ export const walletRouter = createTRPCRouter({
         .returning();
 
       return updated;
+    }),
+
+  getWalletDetails: protectedProcedure
+    .input(
+      z.object({
+        walletId: z.string(),
+        limit: z.number().int().min(1).max(50).default(10),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Get wallet info
+      const walletInfo = await ctx.db.query.wallet.findFirst({
+        where: and(
+          eq(wallet.id, input.walletId),
+          eq(wallet.userId, ctx.user.id),
+        ),
+      });
+
+      if (!walletInfo) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Dompet tidak ditemukan",
+        });
+      }
+
+      // Get recent transactions for this wallet
+      const recentTransactions = await ctx.db.query.transaction.findMany({
+        where: and(
+          eq(transaction.walletId, input.walletId),
+          eq(transaction.userId, ctx.user.id),
+        ),
+        orderBy: (transaction, { desc }) => [desc(transaction.date)],
+        limit: input.limit,
+        with: {
+          category: true,
+        },
+      });
+
+      // Get transaction stats
+      const [transactionStats] = await ctx.db
+        .select({
+          totalTransactions: sql<number>`count(*)::int`,
+          totalIncome: sql<number>`COALESCE(SUM(CASE WHEN ${transaction.type} = 'income' THEN ${transaction.amount} ELSE 0 END), 0)::int`,
+          totalExpense: sql<number>`COALESCE(SUM(CASE WHEN ${transaction.type} = 'expense' THEN ${transaction.amount} ELSE 0 END), 0)::int`,
+        })
+        .from(transaction)
+        .where(
+          and(
+            eq(transaction.walletId, input.walletId),
+            eq(transaction.userId, ctx.user.id),
+          ),
+        );
+
+      return {
+        wallet: walletInfo,
+        transactions: recentTransactions,
+        stats: {
+          totalTransactions: transactionStats?.totalTransactions ?? 0,
+          totalIncome: transactionStats?.totalIncome ?? 0,
+          totalExpense: transactionStats?.totalExpense ?? 0,
+        },
+      };
+    }),
+
+  getWalletMonthlyStats: protectedProcedure
+    .input(
+      z.object({
+        walletId: z.string(),
+        months: z.number().int().min(1).max(12).default(6),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Verify wallet ownership
+      const walletInfo = await ctx.db.query.wallet.findFirst({
+        where: and(
+          eq(wallet.id, input.walletId),
+          eq(wallet.userId, ctx.user.id),
+        ),
+      });
+
+      if (!walletInfo) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Dompet tidak ditemukan",
+        });
+      }
+
+      // Get monthly income/expense for past N months
+      const monthlyStats = await ctx.db
+        .select({
+          month: sql<string>`TO_CHAR(${transaction.date}, 'YYYY-MM')`,
+          income: sql<number>`COALESCE(SUM(CASE WHEN ${transaction.type} = 'income' THEN ${transaction.amount} ELSE 0 END), 0)::int`,
+          expense: sql<number>`COALESCE(SUM(CASE WHEN ${transaction.type} = 'expense' THEN ${transaction.amount} ELSE 0 END), 0)::int`,
+        })
+        .from(transaction)
+        .where(
+          and(
+            eq(transaction.walletId, input.walletId),
+            eq(transaction.userId, ctx.user.id),
+            sql`${transaction.date} >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '${sql.raw(String(input.months - 1))} months'`,
+          ),
+        )
+        .groupBy(sql`TO_CHAR(${transaction.date}, 'YYYY-MM')`)
+        .orderBy(sql`TO_CHAR(${transaction.date}, 'YYYY-MM')`);
+
+      return monthlyStats;
+    }),
+
+  getCategoryBreakdown: protectedProcedure
+    .input(
+      z.object({
+        walletId: z.string(),
+        type: z.enum(["income", "expense"]).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Verify wallet ownership
+      const walletInfo = await ctx.db.query.wallet.findFirst({
+        where: and(
+          eq(wallet.id, input.walletId),
+          eq(wallet.userId, ctx.user.id),
+        ),
+      });
+
+      if (!walletInfo) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Dompet tidak ditemukan",
+        });
+      }
+
+      // Build where conditions
+      const whereConditions = [
+        eq(transaction.walletId, input.walletId),
+        eq(transaction.userId, ctx.user.id),
+      ];
+
+      if (input.type) {
+        whereConditions.push(eq(transaction.type, input.type));
+      }
+
+      // Get category breakdown
+      const categoryBreakdown = await ctx.db
+        .select({
+          categoryId: transaction.categoryId,
+          categoryName: sql<string>`(SELECT name FROM category WHERE id = ${transaction.categoryId})`,
+          total: sql<number>`COALESCE(SUM(${transaction.amount}), 0)::int`,
+          count: sql<number>`count(*)::int`,
+          type: transaction.type,
+        })
+        .from(transaction)
+        .where(and(...whereConditions))
+        .groupBy(transaction.categoryId, transaction.type)
+        .orderBy(sql`SUM(${transaction.amount}) DESC`);
+
+      return categoryBreakdown;
     }),
 });

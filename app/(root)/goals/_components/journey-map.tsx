@@ -221,11 +221,7 @@ export function JourneyMap({ goal }: JourneyMapProps) {
         open={removeAmountOpen}
         onOpenChange={setRemoveAmountOpen}
       />
-      <EditGoalSheet
-        goal={goal}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
+      <EditGoalSheet goal={goal} open={editOpen} onOpenChange={setEditOpen} />
       <DeleteGoalDialog
         goal={goal}
         open={deleteOpen}

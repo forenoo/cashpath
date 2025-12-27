@@ -890,7 +890,7 @@ export function AddTransactionSheet({
                       <>
                         <Spinner className="mr-2" />
                         Mengunggah struk...
-                      </> 
+                      </>
                     ) : createMutation.isPending ? (
                       <>
                         <Spinner className="mr-2" />

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   BuildingIcon,
   MoreHorizontalIcon,
@@ -9,6 +8,9 @@ import {
   Trash2Icon,
   WalletIcon,
 } from "lucide-react";
+import { useState } from "react";
+import { DeleteWalletDialog } from "@/components/delete-wallet-dialog";
+import { EditWalletDialog } from "@/components/edit-wallet-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,8 +28,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { EditWalletDialog } from "@/components/edit-wallet-dialog";
-import { DeleteWalletDialog } from "@/components/delete-wallet-dialog";
 
 type WalletWithStats = {
   id: string;
@@ -46,6 +46,7 @@ type WalletWithStats = {
 type WalletsListProps = {
   wallets: WalletWithStats[];
   isLoading: boolean;
+  onRowClick?: (wallet: WalletWithStats) => void;
 };
 
 const walletTypeLabels = {
@@ -69,7 +70,11 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-export default function WalletsList({ wallets, isLoading }: WalletsListProps) {
+export default function WalletsList({
+  wallets,
+  isLoading,
+  onRowClick,
+}: WalletsListProps) {
   const [editWallet, setEditWallet] = useState<WalletWithStats | null>(null);
   const [deleteWallet, setDeleteWallet] = useState<WalletWithStats | null>(
     null,
@@ -117,7 +122,20 @@ export default function WalletsList({ wallets, isLoading }: WalletsListProps) {
           {wallets.map((wallet) => {
             const Icon = walletTypeIcons[wallet.type];
             return (
-              <TableRow key={wallet.id}>
+              <TableRow
+                key={wallet.id}
+                onClick={(e) => {
+                  const target = e.target as HTMLElement;
+                  const isClickable =
+                    target.closest("button") ||
+                    target.closest("[role='menuitem']") ||
+                    target.closest("[data-radix-popper-content-wrapper]");
+                  if (!isClickable && onRowClick) {
+                    onRowClick(wallet);
+                  }
+                }}
+                className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
+              >
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <div className="flex size-9 items-center justify-center rounded-lg bg-muted">

@@ -2,11 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  BanknoteIcon,
-  PlusCircleIcon,
-  WalletIcon,
-} from "lucide-react";
+import { BanknoteIcon, PlusCircleIcon, WalletIcon } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
