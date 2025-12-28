@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BanknoteIcon, PlusCircleIcon, WalletIcon } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -34,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 
@@ -174,7 +174,7 @@ export function AddAmountToGoalDialog({
           <DialogTitle className="flex items-center gap-2">
             Tambah Tabungan
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-left">
             Alokasikan dana dari dompet ke goal{" "}
             <span className="font-medium text-foreground">{goal?.name}</span>
           </DialogDescription>
@@ -190,7 +190,7 @@ export function AddAmountToGoalDialog({
               </span>
             </div>
             <Progress value={currentProgress} className="h-2" />
-            <p className="text-center text-xs text-muted-foreground">
+            <p className="text-left text-xs text-muted-foreground">
               {currentProgress.toFixed(1)}% tercapai
             </p>
           </div>

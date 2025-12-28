@@ -178,8 +178,8 @@ export default function TransactionsContent() {
 
       {/* Content - table in card */}
       <div className="pt-6 pb-12">
-        <Card>
-          <CardContent>
+        <Card className="py-0 border-none md:border-solid md:py-6">
+          <CardContent className="px-0 md:px-6">
             <DataTable
               columns={tableColumns}
               data={transactions}

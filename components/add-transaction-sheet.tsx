@@ -15,7 +15,6 @@ import {
   XCircleIcon,
   XIcon,
 } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
 import Image from "next/image";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -60,6 +59,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useReceiptScanner } from "@/hooks/use-receipt-scanner";
@@ -477,7 +477,7 @@ export function AddTransactionSheet({
                   </Label>
                   {receiptPreview ? (
                     <div className="space-y-3">
-                      <div className="relative rounded-lg border-2 border-border border-solid">
+                      <div className="relative overflow-hidden rounded-lg border-2 border-border border-solid">
                         <Image
                           alt="Receipt preview"
                           className="h-40 w-full rounded-lg object-cover"
@@ -485,6 +485,22 @@ export function AddTransactionSheet({
                           src={receiptPreview}
                           width={1000}
                         />
+                        {/* Scanner Line Animation */}
+                        {isScanning && (
+                          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
+                            <div
+                              className="absolute left-0 h-0.5 w-full animate-[scanner_2s_linear_infinite]"
+                              style={{
+                                background:
+                                  "linear-gradient(90deg, transparent, rgba(255, 105, 0, 0.8) 20%, rgba(255, 105, 0, 1) 50%, rgba(255, 105, 0, 0.8) 80%, transparent)",
+                                boxShadow:
+                                  "0 0 15px 3px rgba(255, 105, 0, 0.6), 0 0 30px 6px rgba(255, 105, 0, 0.3)",
+                              }}
+                            />
+                            {/* Subtle overlay during scanning */}
+                            <div className="absolute inset-0 bg-linear-to-b from-primary/5 to-transparent" />
+                          </div>
+                        )}
                         <Button
                           className="absolute top-2 right-2 size-7"
                           onClick={removeReceipt}

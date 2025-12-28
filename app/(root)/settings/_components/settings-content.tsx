@@ -1,9 +1,10 @@
 "use client";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import WalletsTab from "./wallets-tab";
-import CategoriesTab from "./categories-tab";
 import Image from "next/image";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CategoriesTab from "./categories-tab";
+import ProfileTab from "./profile-tab";
+import WalletsTab from "./wallets-tab";
 
 export default function SettingsContent() {
   return (
@@ -27,11 +28,15 @@ export default function SettingsContent() {
       </header>
 
       <div className="pt-6 pb-12">
-        <Tabs defaultValue="wallets" className="w-full">
+        <Tabs defaultValue="profile" className="w-full">
           <TabsList>
+            <TabsTrigger value="profile">Profil</TabsTrigger>
             <TabsTrigger value="wallets">Dompet</TabsTrigger>
             <TabsTrigger value="categories">Kategori</TabsTrigger>
           </TabsList>
+          <TabsContent value="profile">
+            <ProfileTab />
+          </TabsContent>
           <TabsContent value="wallets">
             <WalletsTab />
           </TabsContent>

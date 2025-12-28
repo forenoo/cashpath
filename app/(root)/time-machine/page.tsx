@@ -16,7 +16,7 @@ export default async function TimeMachinePage() {
 
   return (
     <HydrateClient>
-      <main className="maxContainer">
+      <main className="maxContainer pb-4 md:pb-6">
         <SimulationContent />
       </main>
     </HydrateClient>

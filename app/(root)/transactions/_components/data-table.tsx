@@ -446,7 +446,7 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between gap-8">
+      <div className="flex items-center justify-between gap-3 sm:gap-8">
         {/* Results per page */}
         <div className="flex items-center gap-3">
           <Label className="max-sm:sr-only" htmlFor={`${id}-page-size`}>
@@ -474,8 +474,8 @@ export function DataTable<TData, TValue>({
           </Select>
         </div>
 
-        {/* Page number information */}
-        <div className="flex grow justify-end whitespace-nowrap text-muted-foreground text-sm">
+        {/* Page number information - hidden on small screens */}
+        <div className="hidden grow justify-end whitespace-nowrap text-muted-foreground text-sm sm:flex">
           <p
             aria-live="polite"
             className="whitespace-nowrap text-muted-foreground text-sm"
@@ -500,11 +500,11 @@ export function DataTable<TData, TValue>({
         </div>
 
         {/* Pagination buttons */}
-        <div>
+        <div className="flex items-center gap-1">
           <Pagination>
             <PaginationContent>
-              {/* First page button */}
-              <PaginationItem>
+              {/* First page button - hidden on small screens */}
+              <PaginationItem className="hidden sm:block">
                 <Button
                   aria-label="Ke halaman pertama"
                   className="disabled:pointer-events-none disabled:opacity-50"
@@ -542,8 +542,8 @@ export function DataTable<TData, TValue>({
                   <ChevronRightIcon aria-hidden="true" size={16} />
                 </Button>
               </PaginationItem>
-              {/* Last page button */}
-              <PaginationItem>
+              {/* Last page button - hidden on small screens */}
+              <PaginationItem className="hidden sm:block">
                 <Button
                   aria-label="Ke halaman terakhir"
                   className="disabled:pointer-events-none disabled:opacity-50"

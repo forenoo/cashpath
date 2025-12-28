@@ -103,7 +103,7 @@ export function ScenarioItemDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+        <DialogHeader className="text-left">
           <DialogTitle>
             {isEditing ? "Edit Item" : "Tambah Item Baru"}
           </DialogTitle>
@@ -138,7 +138,7 @@ export function ScenarioItemDialog({
                       )}
                     >
                       <Banknote className="size-5" />
-                      <span className="font-medium">Pemasukan</span>
+                      <span className="font-medium text-sm">Pemasukan</span>
                     </button>
                     <button
                       type="button"
@@ -151,7 +151,7 @@ export function ScenarioItemDialog({
                       )}
                     >
                       <Receipt className="size-5" />
-                      <span className="font-medium">Pengeluaran</span>
+                      <span className="font-medium text-sm">Pengeluaran</span>
                     </button>
                   </div>
                   <FormMessage />

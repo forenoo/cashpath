@@ -15,7 +15,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Empty } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -81,12 +87,17 @@ export default function DashboardRecentTransactions() {
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col md:flex-row md:items-center justify-between">
         <div className="space-y-1">
           <CardTitle>Transaksi Terbaru</CardTitle>
           <CardDescription>Transaksi terakhir Anda</CardDescription>
         </div>
-        <Button asChild className="gap-1" size="sm" variant="outline">
+        <Button
+          asChild
+          className="gap-1 w-full md:w-auto"
+          size="sm"
+          variant="outline"
+        >
           <Link href="/transactions">
             Selengkapnya
             <ArrowUpRight className="size-4" />
@@ -97,11 +108,17 @@ export default function DashboardRecentTransactions() {
         {isLoading ? (
           <TableSkeleton />
         ) : !transactions || transactions.length === 0 ? (
-          <Empty
-            description="Mulai catat transaksi pertama Anda untuk melihat ringkasan di sini."
-            icon={Receipt}
-            title="Belum ada transaksi"
-          />
+          <Empty>
+            <EmptyMedia variant="icon">
+              <Receipt />
+            </EmptyMedia>
+            <EmptyHeader>
+              <EmptyTitle>Belum ada transaksi</EmptyTitle>
+              <EmptyDescription>
+                Transaksi Anda akan muncul di sini setelah Anda menambahkannya.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <Table>
             <TableHeader>

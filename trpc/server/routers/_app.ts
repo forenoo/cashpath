@@ -5,6 +5,7 @@ import { receiptRouter } from "./receipt";
 import { simulationRouter } from "./simulation";
 import { storageRouter } from "./storage";
 import { transactionRouter } from "./transaction";
+import { userRouter } from "./user";
 import { walletRouter } from "./wallet";
 
 export const appRouter = createTRPCRouter({
@@ -14,6 +15,7 @@ export const appRouter = createTRPCRouter({
   simulation: simulationRouter,
   storage: storageRouter,
   transaction: transactionRouter,
+  user: userRouter,
   wallet: walletRouter,
 });
 

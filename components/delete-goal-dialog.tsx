@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2Icon, WalletIcon } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -16,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 
@@ -158,7 +158,7 @@ export function DeleteGoalDialog({
 
               <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
                 <p className="text-destructive text-sm">
-                  ⚠️ Tindakan ini tidak dapat dibatalkan. Semua milestone dan
+                  Tindakan ini tidak dapat dibatalkan. Semua milestone dan
                   riwayat transaksi juga akan dihapus.
                 </p>
               </div>
@@ -179,7 +179,7 @@ export function DeleteGoalDialog({
               </>
             ) : (
               <>
-                <Trash2Icon className="mr-2 h-4 w-4" />
+                <Trash2Icon className="h-4 w-4" />
                 Hapus Goal
               </>
             )}

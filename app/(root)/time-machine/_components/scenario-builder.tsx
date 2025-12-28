@@ -70,8 +70,8 @@ export function ScenarioBuilder({
     <>
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Income Section */}
-        <Card className="border-emerald-500/30 bg-emerald-500/5">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <Card className="border-emerald-500/30 bg-emerald-500/5 gap-0 md:gap-6">
+          <CardHeader className="flex flex-col md:flex-row md:items-center justify-between pb-3 gap-3">
             <div className="flex items-center gap-4">
               <Banknote className="size-6 text-emerald-600" />
               <div>
@@ -85,7 +85,7 @@ export function ScenarioBuilder({
               size="sm"
               variant="outline"
               onClick={() => handleAddItem("income")}
-              className="border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10"
+              className="border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10 w-full md:w-auto"
             >
               <Plus className="size-4" />
               Tambah
@@ -117,8 +117,8 @@ export function ScenarioBuilder({
         </Card>
 
         {/* Expense Section */}
-        <Card className="border-rose-500/30 bg-rose-500/5">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <Card className="border-rose-500/30 bg-rose-500/5 gap-0 md:gap-6">
+          <CardHeader className="flex flex-col md:flex-row md:items-center justify-between pb-3 gap-3">
             <div className="flex items-center gap-4">
               <Receipt className="size-6 text-rose-600" />
               <div>
@@ -132,7 +132,7 @@ export function ScenarioBuilder({
               size="sm"
               variant="outline"
               onClick={() => handleAddItem("expense")}
-              className="border-rose-500/50 text-rose-600 hover:bg-rose-500/10"
+              className="border-rose-500/50 text-rose-600 hover:bg-rose-500/10 w-full md:w-auto"
             >
               <Plus className="size-4" />
               Tambah
