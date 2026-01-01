@@ -58,7 +58,7 @@ export const processRecurringTransactions = inngest.createFunction(
     id: "process-recurring-transactions",
     retries: 3,
   },
-  { cron: "29 2 * * *" }, // Run at 00:05 UTC every day
+  { cron: "5 0 * * *" }, // Run at 00:05 UTC every day
   async ({ step }) => {
     const today = startOfDay(new Date());
 

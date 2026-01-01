@@ -23,6 +23,54 @@ CREATE TABLE "category" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "goal" (
+	"id" text PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"target_amount" integer NOT NULL,
+	"current_amount" integer DEFAULT 0 NOT NULL,
+	"target_date" timestamp,
+	"status" text DEFAULT 'active' NOT NULL,
+	"user_id" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "goal_transaction" (
+	"id" text PRIMARY KEY NOT NULL,
+	"goal_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"wallet_id" text NOT NULL,
+	"amount" integer NOT NULL,
+	"description" text,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "milestone" (
+	"id" text PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"target_amount" integer NOT NULL,
+	"target_date" timestamp,
+	"order" integer NOT NULL,
+	"is_completed" boolean DEFAULT false NOT NULL,
+	"completed_at" timestamp,
+	"advice" text,
+	"goal_id" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "scenario" (
+	"id" text PRIMARY KEY NOT NULL,
+	"user_id" text NOT NULL,
+	"name" text NOT NULL,
+	"items" jsonb NOT NULL,
+	"frequency" text DEFAULT 'monthly' NOT NULL,
+	"net_monthly" integer NOT NULL,
+	"projection_1_year" integer NOT NULL,
+	"projection_5_years" integer NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "session" (
 	"id" text PRIMARY KEY NOT NULL,
 	"expires_at" timestamp NOT NULL,
@@ -45,6 +93,8 @@ CREATE TABLE "transaction" (
 	"is_recurring" boolean DEFAULT false NOT NULL,
 	"frequency" text,
 	"receipt_url" text,
+	"recurring_template_id" text,
+	"last_processed_at" timestamp,
 	"category_id" text NOT NULL,
 	"wallet_id" text NOT NULL,
 	"user_id" text NOT NULL,
@@ -83,6 +133,12 @@ CREATE TABLE "wallet" (
 --> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "category" ADD CONSTRAINT "category_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "goal" ADD CONSTRAINT "goal_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "goal_transaction" ADD CONSTRAINT "goal_transaction_goal_id_goal_id_fk" FOREIGN KEY ("goal_id") REFERENCES "public"."goal"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "goal_transaction" ADD CONSTRAINT "goal_transaction_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "goal_transaction" ADD CONSTRAINT "goal_transaction_wallet_id_wallet_id_fk" FOREIGN KEY ("wallet_id") REFERENCES "public"."wallet"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "milestone" ADD CONSTRAINT "milestone_goal_id_goal_id_fk" FOREIGN KEY ("goal_id") REFERENCES "public"."goal"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "scenario" ADD CONSTRAINT "scenario_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "transaction" ADD CONSTRAINT "transaction_category_id_category_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."category"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "transaction" ADD CONSTRAINT "transaction_wallet_id_wallet_id_fk" FOREIGN KEY ("wallet_id") REFERENCES "public"."wallet"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -90,6 +146,16 @@ ALTER TABLE "transaction" ADD CONSTRAINT "transaction_user_id_user_id_fk" FOREIG
 ALTER TABLE "wallet" ADD CONSTRAINT "wallet_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "category_userId_idx" ON "category" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "goal_userId_idx" ON "goal" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "goal_status_idx" ON "goal" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "goalTransaction_goalId_idx" ON "goal_transaction" USING btree ("goal_id");--> statement-breakpoint
+CREATE INDEX "goalTransaction_userId_idx" ON "goal_transaction" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "goalTransaction_walletId_idx" ON "goal_transaction" USING btree ("wallet_id");--> statement-breakpoint
+CREATE INDEX "goalTransaction_createdAt_idx" ON "goal_transaction" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "milestone_goalId_idx" ON "milestone" USING btree ("goal_id");--> statement-breakpoint
+CREATE INDEX "milestone_order_idx" ON "milestone" USING btree ("order");--> statement-breakpoint
+CREATE INDEX "scenario_userId_idx" ON "scenario" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "scenario_createdAt_idx" ON "scenario" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "transaction_userId_idx" ON "transaction" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "transaction_date_idx" ON "transaction" USING btree ("date");--> statement-breakpoint
