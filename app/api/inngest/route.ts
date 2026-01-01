@@ -7,7 +7,6 @@ import {
 } from "@/lib/inngest/functions";
 
 export const { GET, POST, PUT } = serve({
-  signingKey: process.env.INNGEST_SIGNING_KEY as string,
   client: inngest,
   functions: [
     processRecurringTransactions,

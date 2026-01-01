@@ -24,6 +24,8 @@
 - [Struktur Proyek](#-struktur-proyek)
 - [Script yang Tersedia](#-script-yang-tersedia)
 - [Referensi API](#-referensi-api)
+- [Deployment](#-deployment)
+- [Lisensi](#-lisensi)
 
 ---
 
@@ -130,7 +132,13 @@ pnpm install
 
 ### 3. Setup Variabel Environment
 
-Buat file `.env` di direktori root:
+**Opsi A: Gunakan Environment Variable yang Sudah Disiapkan (Direkomendasikan untuk Keefisienan)**
+
+File `.env` yang sudah siap pakai tersedia di link yang disertakan dalam pitch deck yang dikumpulkan. Cukup download dan letakkan di direktori root proyek.
+
+**Opsi B: Setup Manual**
+
+Jika ingin melakukan setup sendiri, buat file `.env` di direktori root:
 
 ```bash
 cp .env.example .env
@@ -138,10 +146,10 @@ cp .env.example .env
 
 Kemudian isi semua variabel environment yang diperlukan (lihat bagian [Variabel Environment](#-variabel-environment)).
 
-### 4. Setup Database
+### 4. Setup Database (Lewati Jika Tidak Menggunakan Opsi B atau Setup Manual)
 
 ```bash
-# Push schema ke database
+# Push schema ke database (development)
 npm run db:push
 ```
 
@@ -174,7 +182,6 @@ Buat file `.env` dengan variabel berikut:
 | `R2_SECRET_ACCESS_KEY` | Cloudflare R2 Secret Access Key       | `xxxxx`                                                          |
 | `R2_BUCKET_NAME`       | Nama Bucket Cloudflare R2             | `cashpath-receipts`                                              |
 | `R2_PUBLIC_URL`        | URL publik untuk bucket R2            | `https://r2.yourdomain.com`                                      |
-| `INNGEST_SIGNING_KEY`  | Singing Key Inngest untuk Production  | `your-inngest-signing-key`                                       |
 
 ### Variabel Opsional
 
@@ -182,55 +189,101 @@ Buat file `.env` dengan variabel berikut:
 | ---------------------- | --------------------------- | ----------------------------------- |
 | `NEXT_PUBLIC_BASE_URL` | Base URL untuk SEO/metadata | Fallback ke `http://localhost:3000` |
 
-### Contoh File `.env.local`
+### Contoh File `.env`
 
 ```env
 # ============================================
-# CASHPATH - ENVIRONMENT VARIABLES
-# ============================================
-# Copy this file to .env.local and fill the values
-# cp .env.example .env.local
-
-# ============================================
 # DATABASE (Neon PostgreSQL)
 # ============================================
-DATABASE_URL=postgresql://username:password@ep-xxx-xxx-xxx.region.aws.neon.tech/cashpath?sslmode=require
+# Dapatkan connection string dari https://neon.tech
+DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/cashpath?sslmode=require
 
 # ============================================
-# AUTHENTICATION (better-auth)
+# AUTENTIKASI (better-auth)
 # ============================================
+# Generate random 32+ karakter secret key untuk enkripsi session
+# Anda bisa generate dengan: openssl rand -base64 32
 BETTER_AUTH_SECRET=your-32-character-secret-key-here
 BETTER_AUTH_URL=http://localhost:3000
 
 # ============================================
 # GOOGLE OAuth
 # ============================================
+# Buat credentials di https://console.cloud.google.com/apis/credentials
+# Tambahkan authorized redirect URI: http://localhost:3000/api/auth/callback/google
 GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # ============================================
-# GOOGLE GEMINI AI
+# AI (Google Gemini)
 # ============================================
+# Dapatkan API key dari https://aistudio.google.com/app/apikey
 GEMINI_API_KEY=your-gemini-api-key
 
 # ============================================
 # STORAGE (Cloudflare R2)
 # ============================================
+# Buat R2 bucket dan API tokens di https://dash.cloudflare.com
 R2_ACCOUNT_ID=your-cloudflare-account-id
 R2_ACCESS_KEY_ID=your-r2-access-key-id
 R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
 R2_BUCKET_NAME=cashpath-receipts
 R2_PUBLIC_URL=https://your-r2-public-url.com
-
-# ============================================
-# INNGEST (Background Jobs) - PRODUCTION ONLY
-# ============================================
-# INNGEST_SIGNING_KEY=your-inngest-signing-key
 ```
 
 ---
 
-## ⚡ Setup Inngest (Background Jobs)
+## 🗄 Setup Database (Lewati Jika Tidak Menggunakan Opsi B atau Setup Manual)
+
+Cashpath menggunakan **Neon PostgreSQL** dengan **Drizzle ORM** untuk manajemen database.
+
+### Membuat Database Neon
+
+1. Kunjungi [neon.tech](https://neon.tech/) dan buat akun gratis
+2. Buat proyek dan database baru
+3. Salin connection string dan tambahkan ke `.env` sebagai `DATABASE_URL`
+
+### Skema Database
+
+Database mencakup tabel-tabel berikut:
+
+| Tabel              | Deskripsi                                           |
+| ------------------ | --------------------------------------------------- |
+| `user`             | Akun pengguna dengan informasi profil               |
+| `session`          | Session pengguna untuk autentikasi                  |
+| `account`          | Akun provider OAuth (Google)                        |
+| `verification`     | Token verifikasi email                              |
+| `category`         | Kategori transaksi (pemasukan/pengeluaran/keduanya) |
+| `wallet`           | Dompet pengguna dengan saldo                        |
+| `transaction`      | Transaksi keuangan dengan dukungan berulang         |
+| `goal`             | Target tabungan dengan target dan tenggat waktu     |
+| `goal_milestone`   | Milestone yang dihasilkan AI untuk target           |
+| `goal_transaction` | Kontribusi ke target dari dompet                    |
+| `scenario`         | Skenario simulasi Time Machine                      |
+
+### Perintah Database
+
+```bash
+# Push perubahan schema langsung ke database (development)
+npm run db:push
+
+# Buka Drizzle Studio untuk melihat/edit data
+npm run db:studio
+```
+
+### Melihat Database Anda
+
+Jalankan Drizzle Studio untuk melihat database secara visual:
+
+```bash
+npm run db:studio
+```
+
+Ini membuka antarmuka web di `https://local.drizzle.studio` di mana Anda dapat melihat dan mengedit data.
+
+---
+
+## ⚡ Setup Inngest (Background Jobs) (Lewati Jika Tidak Menggunakan Opsi B atau Setup Manual)
 
 Cashpath menggunakan **Inngest** untuk memproses transaksi berulang secara otomatis.
 
@@ -260,29 +313,9 @@ npx inngest-cli@latest dev
 
 4. Endpoint Inngest aplikasi Anda otomatis terdaftar di `/api/inngest`
 
-### Setup Production
-
-1. Buat akun di [inngest.com](https://www.inngest.com/)
-2. Buat app baru dan dapatkan dan **Signing Key**
-3. Tambahkan berikut ke environment production Anda:
-
-```env
-INNGEST_SIGNING_KEY=your-signing-key
-```
-
-4. Deploy aplikasi Anda dan Inngest akan otomatis menyinkronkan fungsi-fungsi Anda
-
-### Cara Kerja Transaksi Berulang
-
-1. Fungsi `scan-recurring-transactions` berjalan setiap hari jam 00:05 UTC
-2. Mencari semua transaksi berulang di mana `next_occurrence` sudah jatuh tempo
-3. Untuk setiap transaksi, dispatch event `process-recurring-transaction`
-4. Processor membuat transaksi baru dan menghitung tanggal kejadian berikutnya
-5. Frekuensi yang didukung: `daily`, `weekly`, `monthly`, `yearly`
-
 ---
 
-## 📁 Setup Cloudflare R2 Storage
+## 📁 Setup Cloudflare R2 Storage (Lewati Jika Tidak Menggunakan Opsi B atau Setup Manual)
 
 Cashpath menggunakan **Cloudflare R2** untuk menyimpan gambar struk yang digunakan dalam pemindaian AI.
 
@@ -350,34 +383,24 @@ Aplikasi akan tersedia di:
 - **Aplikasi**: http://localhost:3000
 - **Dashboard Inngest**: http://localhost:8288
 
-### Mode Production
-
-```bash
-# Build aplikasi
-npm run build
-
-# Jalankan production server
-npm run start
-```
-
 ---
 
 ## 📂 Struktur Proyek
 
 ```
 cashpath/
-├── app/                         # Next.js App Router
-│   ├── (auth)/                  # Route autentikasi
+├── app/                          # Next.js App Router
+│   ├── (auth)/                   # Route autentikasi
 │   │   ├── login/               # Halaman login
 │   │   └── register/            # Halaman registrasi
-│   ├── (root)/                  # Route terproteksi (dengan navbar)
+│   ├── (root)/                   # Route terproteksi (dengan navbar)
 │   │   ├── layout.tsx           # Layout root dengan navbar
 │   │   ├── dashboard/           # Dashboard utama
 │   │   ├── transactions/        # Manajemen transaksi
 │   │   ├── goals/               # Target tabungan
 │   │   ├── time-machine/        # Simulasi keuangan
 │   │   └── settings/            # Kategori & dompet
-│   ├── api/                     # Route API
+│   ├── api/                      # Route API
 │   │   ├── auth/[...all]/       # Endpoint better-auth
 │   │   ├── inngest/             # Handler webhook Inngest
 │   │   └── trpc/[trpc]/         # Endpoint tRPC
@@ -385,24 +408,24 @@ cashpath/
 │   ├── layout.tsx               # Layout root
 │   └── page.tsx                 # Halaman landing
 │
-├── components/                  # Komponen React
+├── components/                   # Komponen React
 │   ├── ui/                      # Komponen shadcn/ui
-│   ├── navbar.tsx
+│   ├── navbar.tsx               # Navigation bar
 │   ├── add-transaction-sheet.tsx
 │   ├── add-goal-sheet.tsx
 │   └── ...                      # Komponen spesifik fitur
 │
-├── db/                          # Database
+├── db/                           # Database
 │   ├── index.ts                 # Inisialisasi client database
 │   ├── schema.ts                # Definisi schema Drizzle
 │   └── migrations/              # File SQL migration
 │
-├── hooks/                       # Custom React hooks
+├── hooks/                        # Custom React hooks
 │   ├── use-mobile.ts            # Hook deteksi mobile
 │   ├── use-receipt-scanner.ts   # Hook pemindaian struk
 │   └── use-receipt-upload.ts    # Hook upload struk
 │
-├── lib/                         # Utilitas dan konfigurasi
+├── lib/                          # Utilitas dan konfigurasi
 │   ├── utils.ts                 # Utilitas umum (cn, dll.)
 │   ├── auth/                    # Autentikasi
 │   │   ├── auth.ts              # Konfigurasi auth server-side
@@ -419,7 +442,7 @@ cashpath/
 │       ├── transaction.ts
 │       └── ...
 │
-├── trpc/                        # Konfigurasi tRPC
+├── trpc/                         # Konfigurasi tRPC
 │   ├── client/                  # Setup tRPC client-side
 │   └── server/                  # tRPC server-side
 │       ├── index.ts             # Inisialisasi tRPC
@@ -433,7 +456,7 @@ cashpath/
 │           ├── scenario.ts
 │           └── storage.ts
 │
-├── public/                      # Aset statis
+├── public/                       # Aset statis
 ├── biome.json                   # Konfigurasi Biome linter
 ├── components.json              # Konfigurasi shadcn/ui
 ├── drizzle.config.ts            # Konfigurasi Drizzle ORM
