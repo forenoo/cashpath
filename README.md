@@ -24,8 +24,6 @@
 - [Struktur Proyek](#-struktur-proyek)
 - [Script yang Tersedia](#-script-yang-tersedia)
 - [Referensi API](#-referensi-api)
-- [Deployment](#-deployment)
-- [Lisensi](#-lisensi)
 
 ---
 
@@ -77,22 +75,22 @@
 
 ## 🛠 Tech Stack
 
-| Kategori               | Teknologi                                                                   |
-| ---------------------- | --------------------------------------------------------------------------- |
-| **Framework**          | [Next.js 16](https://nextjs.org/) dengan App Router                         |
-| **Bahasa**             | [TypeScript 5](https://www.typescriptlang.org/)                             |
-| **Database**           | [Neon PostgreSQL](https://neon.tech/) (Serverless)                          |
-| **ORM**                | [Drizzle ORM](https://orm.drizzle.team/)                                    |
-| **Autentikasi**        | [better-auth](https://www.better-auth.com/)                                 |
-| **API Layer**          | [tRPC 11](https://trpc.io/)                                                 |
-| **State Management**   | [TanStack React Query](https://tanstack.com/query)                          |
-| **Background Jobs**    | [Inngest](https://www.inngest.com/)                                         |
-| **AI**                 | [Google Generative AI (Gemini)](https://ai.google.dev/)                     |
-| **Storage**            | [Cloudflare R2](https://www.cloudflare.com/products/r2/)                    |
-| **UI Components**      | [Radix UI](https://www.radix-ui.com/) + [shadcn/ui](https://ui.shadcn.com/) |
-| **Styling**            | [Tailwind CSS 4](https://tailwindcss.com/)                                  |
-| **Forms**              | [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/)   |
-| **Linting/Formatting** | [Biome](https://biomejs.dev/)                                               |
+| Kategori               | Teknologi                                                                 |
+| ---------------------- | ------------------------------------------------------------------------- |
+| **Framework**          | [Next.js 16](https://nextjs.org/) dengan App Router                       |
+| **Bahasa**             | [TypeScript 5](https://www.typescriptlang.org/)                           |
+| **Database**           | [Neon PostgreSQL](https://neon.tech/) (Serverless)                        |
+| **ORM**                | [Drizzle ORM](https://orm.drizzle.team/)                                  |
+| **Autentikasi**        | [better-auth](https://www.better-auth.com/)                               |
+| **API Layer**          | [tRPC 11](https://trpc.io/)                                               |
+| **State Management**   | [TanStack React Query](https://tanstack.com/query)                        |
+| **Background Jobs**    | [Inngest](https://www.inngest.com/)                                       |
+| **AI**                 | [Google Generative AI (Gemini)](https://ai.google.dev/)                   |
+| **Storage**            | [Cloudflare R2](https://www.cloudflare.com/products/r2/)                  |
+| **UI Components**      | [shadcn/ui](https://ui.shadcn.com/)                                       |
+| **Styling**            | [Tailwind CSS 4](https://tailwindcss.com/)                                |
+| **Forms**              | [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/) |
+| **Linting/Formatting** | [Biome](https://biomejs.dev/)                                             |
 
 ---
 
@@ -132,10 +130,10 @@ pnpm install
 
 ### 3. Setup Variabel Environment
 
-Buat file `.env.local` di direktori root:
+Buat file `.env` di direktori root:
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env
 ```
 
 Kemudian isi semua variabel environment yang diperlukan (lihat bagian [Variabel Environment](#-variabel-environment)).
@@ -143,12 +141,8 @@ Kemudian isi semua variabel environment yang diperlukan (lihat bagian [Variabel 
 ### 4. Setup Database
 
 ```bash
-# Push schema ke database (development)
+# Push schema ke database
 npm run db:push
-
-# Atau generate dan jalankan migrations (production)
-npm run db:generate
-npm run db:migrate
 ```
 
 ### 5. Jalankan Development Server
@@ -163,7 +157,7 @@ Buka [http://localhost:3000](http://localhost:3000) untuk melihat aplikasi.
 
 ## 🔑 Variabel Environment
 
-Buat file `.env.local` dengan variabel berikut:
+Buat file `.env` dengan variabel berikut:
 
 ### Variabel Wajib
 
@@ -180,6 +174,7 @@ Buat file `.env.local` dengan variabel berikut:
 | `R2_SECRET_ACCESS_KEY` | Cloudflare R2 Secret Access Key       | `xxxxx`                                                          |
 | `R2_BUCKET_NAME`       | Nama Bucket Cloudflare R2             | `cashpath-receipts`                                              |
 | `R2_PUBLIC_URL`        | URL publik untuk bucket R2            | `https://r2.yourdomain.com`                                      |
+| `INNGEST_SIGNING_KEY`  | Singing Key Inngest untuk Production  | `your-inngest-signing-key`                                       |
 
 ### Variabel Opsional
 
@@ -191,99 +186,47 @@ Buat file `.env.local` dengan variabel berikut:
 
 ```env
 # ============================================
-# DATABASE (Neon PostgreSQL)
+# CASHPATH - ENVIRONMENT VARIABLES
 # ============================================
-# Dapatkan connection string dari https://neon.tech
-DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/cashpath?sslmode=require
+# Copy this file to .env.local and fill the values
+# cp .env.example .env.local
 
 # ============================================
-# AUTENTIKASI (better-auth)
+# DATABASE (Neon PostgreSQL)
 # ============================================
-# Generate random 32+ karakter secret key untuk enkripsi session
-# Anda bisa generate dengan: openssl rand -base64 32
+DATABASE_URL=postgresql://username:password@ep-xxx-xxx-xxx.region.aws.neon.tech/cashpath?sslmode=require
+
+# ============================================
+# AUTHENTICATION (better-auth)
+# ============================================
 BETTER_AUTH_SECRET=your-32-character-secret-key-here
 BETTER_AUTH_URL=http://localhost:3000
 
 # ============================================
 # GOOGLE OAuth
 # ============================================
-# Buat credentials di https://console.cloud.google.com/apis/credentials
-# Tambahkan authorized redirect URI: http://localhost:3000/api/auth/callback/google
 GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # ============================================
-# AI (Google Gemini)
+# GOOGLE GEMINI AI
 # ============================================
-# Dapatkan API key dari https://aistudio.google.com/app/apikey
 GEMINI_API_KEY=your-gemini-api-key
 
 # ============================================
 # STORAGE (Cloudflare R2)
 # ============================================
-# Buat R2 bucket dan API tokens di https://dash.cloudflare.com
 R2_ACCOUNT_ID=your-cloudflare-account-id
 R2_ACCESS_KEY_ID=your-r2-access-key-id
 R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
 R2_BUCKET_NAME=cashpath-receipts
 R2_PUBLIC_URL=https://your-r2-public-url.com
+
+# ============================================
+# INNGEST (Background Jobs) - PRODUCTION ONLY
+# ============================================
+# INNGEST_SIGNING_KEY=your-inngest-signing-key
 ```
-
----
-
-## 🗄 Setup Database
-
-Cashpath menggunakan **Neon PostgreSQL** dengan **Drizzle ORM** untuk manajemen database.
-
-### Membuat Database Neon
-
-1. Kunjungi [neon.tech](https://neon.tech/) dan buat akun gratis
-2. Buat proyek dan database baru
-3. Salin connection string dan tambahkan ke `.env.local` sebagai `DATABASE_URL`
-
-### Skema Database
-
-Database mencakup tabel-tabel berikut:
-
-| Tabel              | Deskripsi                                           |
-| ------------------ | --------------------------------------------------- |
-| `user`             | Akun pengguna dengan informasi profil               |
-| `session`          | Session pengguna untuk autentikasi                  |
-| `account`          | Akun provider OAuth (Google)                        |
-| `verification`     | Token verifikasi email                              |
-| `category`         | Kategori transaksi (pemasukan/pengeluaran/keduanya) |
-| `wallet`           | Dompet pengguna dengan saldo                        |
-| `transaction`      | Transaksi keuangan dengan dukungan berulang         |
-| `goal`             | Target tabungan dengan target dan tenggat waktu     |
-| `goal_milestone`   | Milestone yang dihasilkan AI untuk target           |
-| `goal_transaction` | Kontribusi ke target dari dompet                    |
-| `scenario`         | Skenario simulasi Time Machine                      |
-
-### Perintah Database
-
-```bash
-# Push perubahan schema langsung ke database (development)
-npm run db:push
-
-# Generate file SQL migration
-npm run db:generate
-
-# Jalankan migration yang pending (production)
-npm run db:migrate
-
-# Buka Drizzle Studio untuk melihat/edit data
-npm run db:studio
-```
-
-### Melihat Database Anda
-
-Jalankan Drizzle Studio untuk melihat database secara visual:
-
-```bash
-npm run db:studio
-```
-
-Ini membuka antarmuka web di `https://local.drizzle.studio` di mana Anda dapat melihat dan mengedit data.
 
 ---
 
@@ -320,11 +263,10 @@ npx inngest-cli@latest dev
 ### Setup Production
 
 1. Buat akun di [inngest.com](https://www.inngest.com/)
-2. Buat app baru dan dapatkan **Event Key** dan **Signing Key**
+2. Buat app baru dan dapatkan dan **Signing Key**
 3. Tambahkan berikut ke environment production Anda:
 
 ```env
-INNGEST_EVENT_KEY=your-event-key
 INNGEST_SIGNING_KEY=your-signing-key
 ```
 
@@ -424,18 +366,18 @@ npm run start
 
 ```
 cashpath/
-├── app/                          # Next.js App Router
-│   ├── (auth)/                   # Route autentikasi
+├── app/                         # Next.js App Router
+│   ├── (auth)/                  # Route autentikasi
 │   │   ├── login/               # Halaman login
 │   │   └── register/            # Halaman registrasi
-│   ├── (root)/                   # Route terproteksi (dengan navbar)
+│   ├── (root)/                  # Route terproteksi (dengan navbar)
 │   │   ├── layout.tsx           # Layout root dengan navbar
 │   │   ├── dashboard/           # Dashboard utama
 │   │   ├── transactions/        # Manajemen transaksi
 │   │   ├── goals/               # Target tabungan
 │   │   ├── time-machine/        # Simulasi keuangan
 │   │   └── settings/            # Kategori & dompet
-│   ├── api/                      # Route API
+│   ├── api/                     # Route API
 │   │   ├── auth/[...all]/       # Endpoint better-auth
 │   │   ├── inngest/             # Handler webhook Inngest
 │   │   └── trpc/[trpc]/         # Endpoint tRPC
@@ -443,24 +385,24 @@ cashpath/
 │   ├── layout.tsx               # Layout root
 │   └── page.tsx                 # Halaman landing
 │
-├── components/                   # Komponen React
+├── components/                  # Komponen React
 │   ├── ui/                      # Komponen shadcn/ui
-│   ├── navbar.tsx               # Navigation bar
+│   ├── navbar.tsx
 │   ├── add-transaction-sheet.tsx
 │   ├── add-goal-sheet.tsx
 │   └── ...                      # Komponen spesifik fitur
 │
-├── db/                           # Database
+├── db/                          # Database
 │   ├── index.ts                 # Inisialisasi client database
 │   ├── schema.ts                # Definisi schema Drizzle
 │   └── migrations/              # File SQL migration
 │
-├── hooks/                        # Custom React hooks
+├── hooks/                       # Custom React hooks
 │   ├── use-mobile.ts            # Hook deteksi mobile
 │   ├── use-receipt-scanner.ts   # Hook pemindaian struk
 │   └── use-receipt-upload.ts    # Hook upload struk
 │
-├── lib/                          # Utilitas dan konfigurasi
+├── lib/                         # Utilitas dan konfigurasi
 │   ├── utils.ts                 # Utilitas umum (cn, dll.)
 │   ├── auth/                    # Autentikasi
 │   │   ├── auth.ts              # Konfigurasi auth server-side
@@ -477,7 +419,7 @@ cashpath/
 │       ├── transaction.ts
 │       └── ...
 │
-├── trpc/                         # Konfigurasi tRPC
+├── trpc/                        # Konfigurasi tRPC
 │   ├── client/                  # Setup tRPC client-side
 │   └── server/                  # tRPC server-side
 │       ├── index.ts             # Inisialisasi tRPC
@@ -491,7 +433,7 @@ cashpath/
 │           ├── scenario.ts
 │           └── storage.ts
 │
-├── public/                       # Aset statis
+├── public/                      # Aset statis
 ├── biome.json                   # Konfigurasi Biome linter
 ├── components.json              # Konfigurasi shadcn/ui
 ├── drizzle.config.ts            # Konfigurasi Drizzle ORM
@@ -564,59 +506,6 @@ await createTransaction.mutateAsync({
   description: "Belanja groceries",
 });
 ```
-
----
-
-## 🚀 Deployment
-
-### Vercel (Direkomendasikan)
-
-1. Push kode Anda ke GitHub
-2. Import repository Anda di [Vercel](https://vercel.com)
-3. Tambahkan semua variabel environment di Project Settings
-4. Deploy!
-
-### Platform Lain
-
-Cashpath dapat di-deploy ke platform manapun yang mendukung Next.js:
-
-- **Railway**
-- **Render**
-- **AWS Amplify**
-- **Docker** (self-hosted)
-
-### Checklist Production
-
-- [ ] Set semua variabel environment
-- [ ] Jalankan database migrations (`npm run db:migrate`)
-- [ ] Konfigurasi Inngest untuk production (tambahkan event/signing keys)
-- [ ] Setup CORS Cloudflare R2 untuk domain production Anda
-- [ ] Update URI redirect Google OAuth yang diizinkan
-- [ ] Aktifkan HTTPS
-
----
-
-## 📄 Lisensi
-
-Proyek ini dilisensikan di bawah Lisensi MIT - lihat file [LICENSE](LICENSE) untuk detail.
-
----
-
-## 🤝 Kontribusi
-
-Kontribusi sangat diterima! Silakan ajukan Pull Request.
-
-1. Fork repository
-2. Buat branch fitur Anda (`git checkout -b feature/FiturKeren`)
-3. Commit perubahan Anda (`git commit -m 'Tambah FiturKeren'`)
-4. Push ke branch (`git push origin feature/FiturKeren`)
-5. Buka Pull Request
-
----
-
-## 📧 Dukungan
-
-Jika Anda memiliki pertanyaan atau butuh bantuan, silakan buka issue di GitHub.
 
 ---
 
